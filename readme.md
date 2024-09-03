@@ -1,0 +1,1 @@
+Flera kärnor > en kärna
