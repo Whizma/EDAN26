@@ -1,1 +1,1 @@
-Flera kärnor > en kärna
+Flera kärnor > en kärna (äkta)
