@@ -20,6 +20,7 @@ case object Excess
 case object Maxflow
 case object Sink
 case object Hello
+case object GetHeight
 
 class Edge(var u: ActorRef, var v: ActorRef, var c: Int) {
   var f = 0
@@ -50,13 +51,13 @@ class Node(val index: Int) extends Actor {
     if (debug) { println(id + " exits " + func); status }
   }
 
-  def push(currentEdge: Edge): Unit = {
+  def push(currentEdge: Edge, height: Int): Unit = {
     enter("push")
 
     val delta = min(e, currentEdge.c - currentEdge.f)
-    e.f += delta
+    currentEdge.f += delta
 
-    other(e, self) ! Flow(delta)
+    other(currentEdge, self) ! Flow(delta)
 
     e -= delta
 
@@ -99,11 +100,12 @@ class Node(val index: Int) extends Actor {
       enter("start")
 
       for (currentEdge <- edge) {
-        if (currentEdge.u == self && e > 0 && h > h(Other(currentEdge, self))) {
-          push(currentEdge)
+
+        if (currentEdge.u == self && e > 0) {
+          push(currentEdge, height)
         }
         if (e > 0) {
-          relabel(e)
+          relabel
         } else {
           control ! Flow(0)
         }
@@ -149,12 +151,25 @@ class Preflow extends Actor {
 
     case Maxflow => {
       ret = sender
+      node(s) ! Source(n)
+      // println("Vi är i maxflow")
+      for(currentEdge <- node(s).edge) {
+        currentEdge.f = currentEdge.c
+        other(currentEdge, node(s)) ! Flow(currentEdge.f)
+        node(s).e -= currentEdge.f
+      }
+
+      for (u <- node) {
+        u ! Start
+      }
+
       node(t) ! Excess /* ask sink for its excess preflow (which certainly still is zero). */
     }
   }
 }
 
 object main extends App {
+	println("main")
   implicit val t = Timeout(4 seconds);
 
   val begin = System.currentTimeMillis()
@@ -196,7 +211,7 @@ object main extends App {
 
   control ! node
   control ! edge
-
+  println("Hej")
   val flow = control ? Maxflow
   val f = Await.result(flow, t.duration)
 
