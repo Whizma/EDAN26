@@ -1,0 +1,20 @@
+2024.09.04 15:01:06 INFO  Started: Metals version 1.3.5 in folders '/Users/admin/uni/EDAN26/labs/lab1' for client Neovim 0.10.1.[0m
+SLF4J(W): Class path contains multiple SLF4J providers.
+SLF4J(W): Found provider [scribe.slf4j.ScribeServiceProvider@3f3ba614]
+SLF4J(W): Found provider [ch.qos.logback.classic.spi.LogbackServiceProvider@49cb14cb]
+SLF4J(W): See https://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+SLF4J(I): Actual provider is of type [scribe.slf4j.ScribeServiceProvider@3f3ba614]
+2024.09.04 15:01:06 WARN  Flyway upgrade recommended: H2 2.3.230 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.[0m
+2024.09.04 15:01:06 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:07 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:07 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:07 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:13 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:13 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:13 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:18 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:19 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:19 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:20 INFO  no build target found for /Users/admin/uni/EDAN26/labs/lab1/preflow.scala. Using presentation compiler with project's scala-library version: 3.3.3[0m
+2024.09.04 15:01:20 INFO  Shutting down server[0m
+2024.09.04 15:01:20 INFO  shutting down Metals[0m

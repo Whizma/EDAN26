@@ -5,9 +5,9 @@ onLoadMessage := ""
 
 logLevel in run := Level.Error
 
-version := "1.0"
+version := "1.10.1"
 
-scalaVersion := "2.13.1"
+scalaVersion := "2.13.14"
 
 lazy val akkaVersion = "2.6.14"
 
