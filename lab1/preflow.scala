@@ -13,6 +13,8 @@ case class Flow(f: Int)
 case class Debug(debug: Boolean)
 case class Control(control: ActorRef)
 case class Source(n: Int)
+case class PushRequest(senderHeight: Int, flow: Int, edge: Edge)
+case class PushResponse(accept: Boolean, edge: Edge) 
 
 case object Print
 case object Start
@@ -20,7 +22,6 @@ case object Excess
 case object Maxflow
 case object Sink
 case object Hello
-case object GetHeight
 
 class Edge(var u: ActorRef, var v: ActorRef, var c: Int) {
   var f = 0
@@ -51,17 +52,13 @@ class Node(val index: Int) extends Actor {
     if (debug) { println(id + " exits " + func); status }
   }
 
-  def push(currentEdge: Edge, height: Int): Unit = {
-    enter("push")
+  def tryPush(currentEdge: Edge): Unit = {
+    enter("trypush")
 
     val delta = min(e, currentEdge.c - currentEdge.f)
-    currentEdge.f += delta
+    other(currentEdge, self) ! PushRequest(h, delta, currentEdge)
 
-    other(currentEdge, self) ! Flow(delta)
-
-    e -= delta
-
-    exit("push")
+    exit("trypush")
   }
 
   def relabel: Unit = {
@@ -112,6 +109,26 @@ class Node(val index: Int) extends Actor {
       }
 
       exit("start")
+    }
+
+    case PushRequest(senderHeight, flow, edge) => {
+      enter("PushRequest")
+      if (h < senderHeight) {
+        edge.f += flow
+        e += flow
+        sender ! PushResponse(true, edge)
+      } else {
+        sender ! PushResponse(false, edge)
+      }
+      exit("PushRequest")
+    }
+
+    case PushResponse(accept, edge) => {
+      if(accept) {
+        e -= edge.f
+      } else {
+        relabel
+      }
     }
 
     case _ =>
