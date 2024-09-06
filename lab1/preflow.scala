@@ -16,6 +16,8 @@ case class Control(control: ActorRef)
 case class Source(n: Int)
 case class PushRequest(senderHeight: Int, flow: Int, edge: Edge)
 case class PushResponse(accept: Boolean, edge: Edge, flow: Int)
+case class ShouldTerminate(e: Int)
+
 
 case object Print
 case object Start
@@ -23,7 +25,7 @@ case object Excess
 case object Maxflow
 case object Sink
 case object Hello
-case object ShouldTerminate
+case object Initialize
 
 class Edge(var u: ActorRef, var v: ActorRef, var c: Int) {
   var f = 0
@@ -37,7 +39,7 @@ class Node(val index: Int) extends Actor {
   var sink: Boolean = false /* true if we are the sink.					*/
   var edge: List[Edge] =
     Nil /* adjacency list with edge objects shared with other nodes.	*/
-  var debug = true /* to enable printing.						*/
+  var debug = false /* to enable printing.						*/
   var isPushing = false
   var currentEdges: List[Edge] = Nil
 
@@ -68,7 +70,7 @@ class Node(val index: Int) extends Actor {
   def discharge: Unit = {
     enter("discharge")
     if (e > 0 && !sink && !source && !isPushing) {
-      if (currentEdges.isEmpty) {
+      if (currentEdges == Nil) {
         relabel
         currentEdges = edge
       }
@@ -89,14 +91,12 @@ class Node(val index: Int) extends Actor {
     case Print => status
 
     case Excess => {
-      sender ! Flow(
-        e
-      ) /* send our current excess preflow to actor that asked for it. */
+      sender ! Flow(e) /* send our current excess preflow to actor that asked for it. */
     }
 
     case edge: Edge => {
-      this.edge =
-        edge :: this.edge /* put this edge first in the adjacency-list. */
+      this.edge = edge :: this.edge /* put this edge first in the adjacency-list. */
+      currentEdges = edge :: currentEdges
     }
 
     case Control(control: ActorRef) => this.control = control
@@ -107,46 +107,63 @@ class Node(val index: Int) extends Actor {
 
     case Start => {
       enter("start")
-
+      // println(edge.length)
       for (currentEdge <- edge) {
-        var pf = if (currentEdge.c == self) currentEdge.c else -currentEdge.c
+        var pf = if (currentEdge.u == self) currentEdge.c else -currentEdge.c
+        // println(pf, currentEdge.c, h)
         other(currentEdge, self) ! PushRequest(h, pf, currentEdge)
-        control ! ShouldTerminate
+        control ! ShouldTerminate(pf)
       }
-
+      control ! Initialize
       exit("start")
     }
 
     case PushRequest(senderHeight, flow, currentEdge) => {
       enter("PushRequest")
-      var delta = 0
+      // println("push req", senderHeight, h, flow, currentEdge.u, currentEdge.v)
       if (senderHeight > h) {
         if (flow > 0) {
-          delta = min(flow, currentEdge.c - currentEdge.f)
+          var delta = min(flow, currentEdge.c - currentEdge.f)
           currentEdge.f += delta
           e += delta
-        } else {
-          delta = min(-flow, currentEdge.c + currentEdge.f)
-          currentEdge.f -= delta
-          e += delta
-        }
+          sender ! PushResponse(true, currentEdge, delta)
+          if ((sink || source) && delta > 0) {
+            control ! ShouldTerminate(-delta)
+          }
+      }
+      else if (flow < 0) {
+        var delta = min(-flow, currentEdge.c + currentEdge.f)
+        currentEdge.f -= delta
+        e += delta
         sender ! PushResponse(true, currentEdge, delta)
-        if ((sink || source)) {
-          control ! ShouldTerminate
+        if ((sink || source) && delta > 0) {
+            control ! ShouldTerminate(-delta)
         }
-      } else {
+      }
+        if(!source) assert(e >= 0)
+          discharge
+      }
+      else {
         sender ! PushResponse(false, currentEdge, 0)
       }
+
       exit("PushRequest")
     }
 
     case PushResponse(accept, edge, flow) => {
       isPushing = false
       if (accept) {
-        e -= edge.f
-        discharge
-      } else {
-        discharge
+        // println("push accepteras")
+        e -= flow
+        if (!(source || sink || e == 0)) {
+          discharge
+        }
+      }
+      else {
+        // println("push nekas")
+      	if (!(source || sink || e == 0)) {
+          discharge
+        }
       }
     }
 
@@ -167,6 +184,8 @@ class Preflow extends Actor {
   var edge: Array[Edge] = null /* edges in the graph.						*/
   var node: Array[ActorRef] = null /* vertices in the graph.					*/
   var ret: ActorRef = null /* Actor to send result to.					*/
+  var total = 0
+  var init = false
 
   def receive = {
 
@@ -192,26 +211,22 @@ class Preflow extends Actor {
       node(s) ! Start
     }
 
-    case ShouldTerminate => {
-      implicit val time = Timeout(4 seconds);
+    case Initialize => {
+      init = true
+    }
 
-      val excessSourceFuture = node(s) ? Excess
-      val excessSinkFuture = node(t) ? Excess
-      
-      val excessSource = Await.result(excessSourceFuture, time.duration).asInstanceOf[Flow].f
-      val excessSink = Await.result(excessSinkFuture, time.duration).asInstanceOf[Flow].f
-
-      // Now you have the actual flow values as integers
-      if (Math.abs(excessSource) == excessSink) {
-        node(t) ! Excess // (Purpose of this still needs clarification)
-      }
+    case ShouldTerminate(e: Int) => {
+      total += e
+      // println("i term", total, e)
+			if(init && total == 0) {
+				node(t) ! Excess
+			}
     }
   }
 }
 
 object main extends App {
-  println("main")
-  implicit val t = Timeout(4 seconds);
+  implicit val t = Timeout(100 seconds);
 
   val begin = System.currentTimeMillis()
   val system = ActorSystem("Main")
@@ -252,7 +267,6 @@ object main extends App {
 
   control ! node
   control ! edge
-  println("Hej")
   val flow = control ? Maxflow
   val f = Await.result(flow, t.duration)
 
