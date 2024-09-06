@@ -1,20 +1,8 @@
-[error] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:102:65: value height is not a member of akka.actor.ActorRef
-[error]         if (currentEdge.u == self && e > 0 && h > currentEdge.v.height) {
-[error]                                                                 ^
-[error] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:106:18: Unit does not take parameters
-[error]           relabel()
-[error]                  ^
-[error] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:154:34: value edge is not a member of akka.actor.ActorRef
-[error]       for(currentEdge <- node(s).edge) {
-[error]                                  ^
-[error] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:156:9: not found: value other
-[error]         other(currentEdge, node(s)) ! Flow(currentEdge.f)
-[error]         ^
-[error] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:157:17: value e is not a member of akka.actor.ActorRef
-[error]         node(s).e -= currentEdge.f
-[error]                 ^
-[warn] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:171:16: Implicit definition should have explicit type (inferred akka.util.Timeout) [quickfixable]
+[warn] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:214:16: Implicit definition should have explicit type (inferred akka.util.Timeout) [quickfixable]
 [warn]   implicit val t = Timeout(4 seconds);
 [warn]                ^
-[warn] one warning found
-[error] 5 errors found
+[warn] /Users/admin/uni/EDAN26/labs/lab1/preflow.scala:112:36: comparing values of types Int and akka.actor.ActorRef using `==` will always yield false
+[warn]         var pf = if (currentEdge.c == self) currentEdge.c else -currentEdge.c
+[warn]                                    ^
+[warn] 5 deprecations (since 2.13.3); re-run with -deprecation for details
+[warn] three warnings found
