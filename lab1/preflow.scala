@@ -110,9 +110,8 @@ class Node(val index: Int) extends Actor {
       // println(edge.length)
       for (currentEdge <- edge) {
         var pf = if (currentEdge.u == self) currentEdge.c else -currentEdge.c
-        // println(pf, currentEdge.c, h)
         other(currentEdge, self) ! PushRequest(h, pf, currentEdge)
-        control ! ShouldTerminate(pf)
+        control ! ShouldTerminate(-pf)
       }
       control ! Initialize
       exit("start")
@@ -120,9 +119,9 @@ class Node(val index: Int) extends Actor {
 
     case PushRequest(senderHeight, flow, currentEdge) => {
       enter("PushRequest")
-      // println("push req", senderHeight, h, flow, currentEdge.u, currentEdge.v)
       if (senderHeight > h) {
         if (flow > 0) {
+          println("flow > 0: ", flow, currentEdge.c - currentEdge.f)
           var delta = min(flow, currentEdge.c - currentEdge.f)
           currentEdge.f += delta
           e += delta
@@ -132,6 +131,7 @@ class Node(val index: Int) extends Actor {
           }
       }
       else if (flow < 0) {
+        println("flow < 0: " , -flow, currentEdge.c + currentEdge.f)
         var delta = min(-flow, currentEdge.c + currentEdge.f)
         currentEdge.f -= delta
         e += delta
@@ -153,7 +153,6 @@ class Node(val index: Int) extends Actor {
     case PushResponse(accept, edge, flow) => {
       isPushing = false
       if (accept) {
-        // println("push accepteras")
         e -= flow
         if (!(source || sink || e == 0)) {
           discharge
@@ -217,7 +216,7 @@ class Preflow extends Actor {
 
     case ShouldTerminate(e: Int) => {
       total += e
-      // println("i term", total, e)
+      // println("i terminate", total)
 			if(init && total == 0) {
 				node(t) ! Excess
 			}
@@ -226,7 +225,7 @@ class Preflow extends Actor {
 }
 
 object main extends App {
-  implicit val t = Timeout(100 seconds);
+  implicit val t = Timeout(4 seconds);
 
   val begin = System.currentTimeMillis()
   val system = ActorSystem("Main")

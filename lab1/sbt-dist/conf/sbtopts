@@ -26,7 +26,6 @@
 # set memory options
 #
 #-mem   <integer>  
-
 # Use local caches for projects, no sharing.
 #
 #-no-share
