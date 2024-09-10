@@ -41,16 +41,43 @@ class Graph {
 
 	void relabel(Node u)
 	{
+		u.h++;
+		enter_excess(u);
 	}
 
-	void push(Node u, Node v, Edge a)
-	{
+	void push(Node u, Node v, Edge a){
+		System.out.println("push");
+		int delta;
+		if (u == a.u) {
+			delta = Math.min(u.e, a.c - a.f);
+			a.f += delta;
+		}
+		else {
+			delta = Math.min(u.e, a.c + a.f);
+			a.f -= delta;
+		}
+
+		u.e -= delta;
+		v.e += delta;
+
+		assert(delta >= 0);
+		assert(u.e >= 0);
+		assert(Math.abs(a.f) <= a.c);
+
+		if (u.e > 0) {
+			enter_excess(u);
+		}
+
+		if (v.e == delta) {
+			enter_excess(v);
+		}
+
 	}
 
 	int preflow(int s, int t)
 	{
 		ListIterator<Edge>	iter;
-		int			b;
+		int			  b;
 		Edge			a;
 		Node			u;
 		Node			v;
@@ -69,6 +96,7 @@ class Graph {
 		}
 
 		while (excess != null) {
+			
 			u = excess;
 			v = null;
 			a = null;
@@ -76,7 +104,23 @@ class Graph {
 
 			iter = u.adj.listIterator();
 			while (iter.hasNext()) {
+				// System.out.println("Fast i  while");
 				a = iter.next();
+				
+				if (u == a.u) {
+					v = a.v;
+					b = 1;
+				} else {
+					v = a.u;
+					b = -1;
+				}
+				System.out.println(u.toString() + " " + v.toString());
+
+				if(u.h > v.h && b * a.f < a.c) {
+					break;
+				} else {
+					v = null;
+				}
 			}
 
 			if (v != null)
@@ -119,8 +163,7 @@ class Edge {
 }
 
 class Preflow {
-	public static void main(String args[])
-	{
+	public static void main(String args[]){	
 		double	begin = System.currentTimeMillis();
 		Scanner s = new Scanner(System.in);
 		int	n;
