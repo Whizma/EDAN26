@@ -212,7 +212,6 @@ class Preflow extends Actor {
 
     case ShouldTerminate(e: Int) => {
       total += e
-      println("i terminate", total)
       if (init && total == 0) {
         node(t) ! Excess
       }
