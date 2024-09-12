@@ -6,26 +6,6 @@ import java.io.*;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-class Work extends Thread {
-  Node excess;
-  Node u;
-  Node v;
-  Edge e;
-
-
-  public Work(Node u, Node v, Edge e) {
-    this.u = u;
-    this.v = v;
-    this.e = e;
-  }
-  public void run() {
-    while (excess != null) {
-      
-    }
-  }
-
-}
-
 class Graph {
 
 	int	s;
@@ -127,7 +107,7 @@ class Graph {
 						while (iter2.hasNext()) {
 							Edge e = iter2.next();
 							Node v = other(e, u);
-							int b;
+						  int b;
 							if (u == e.u) {
 								v = e.v;
 								b = 1;
@@ -226,7 +206,7 @@ class Preflow {
 		}
 
 		g = new Graph(node, edge);
-		f = g.preflow(0, n-1, 10);
+		f = g.preflow(0, n-1, 8);
 		double	end = System.currentTimeMillis();
 		System.out.println("t = " + (end - begin) / 1000.0 + " s");
 		System.out.println("f = " + f);
