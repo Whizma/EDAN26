@@ -82,6 +82,7 @@ struct node_t {
 	int		e;	/* excess flow.			*/
 	list_t*		edge;	/* adjacency list.		*/
 	node_t*		next;	/* with excess preflow.		*/
+	pthread_mutex_t mutex;
 };
 
 struct edge_t {
@@ -99,6 +100,7 @@ struct graph_t {
 	node_t*		s;	/* source.			*/
 	node_t*		t;	/* sink.			*/
 	node_t*		excess;	/* nodes with e > 0 except s,t.	*/
+	pthread_mutex_t mutex;
 };
 
 /* a remark about C arrays. the phrase above 'array of n nodes' is using
@@ -310,6 +312,11 @@ static graph_t* new_graph(FILE* in, int n, int m)
 	int		a;
 	int		b;
 	int		c;
+
+	pthread_mutex_init(&g->mutex, NULL);
+	for (i = 0; i < n; i++) {
+		pthread_mutex_init(&g->v[i].mutex, NULL);
+	}
 	
 	g = xmalloc(sizeof(graph_t));
 
@@ -345,7 +352,7 @@ static void enter_excess(graph_t* g, node_t* v)
 	 * it first is simplest.
 	 *
 	 */
-
+	
 	if (v != g->t && v != g->s) {
 		v->next = g->excess;
 		g->excess = v;
@@ -353,7 +360,8 @@ static void enter_excess(graph_t* g, node_t* v)
 }
 
 static node_t* leave_excess(graph_t* g)
-{
+{   
+    ptherad_mutex_lock(&g->mutex);
 	node_t*		v;
 
 	/* take any node from the set of nodes with excess preflow
@@ -368,6 +376,7 @@ static node_t* leave_excess(graph_t* g)
 
 		
 	// pr("%d", id(g, v));
+    ptherad_mutex_unlock(&g->mutex);
 	return v;
 }
 
@@ -543,6 +552,7 @@ static void free_graph(graph_t* g)
 	list_t*		q;
 
 	for (i = 0; i < g->n; i += 1) {
+        pthread_mutex_destroy(&g->v[i].mutex);
 		p = g->v[i].edge;
 		while (p != NULL) {
 			q = p->next;
@@ -550,6 +560,7 @@ static void free_graph(graph_t* g)
 			p = q;
 		}
 	}
+	pthread_mutex_destroy(&g->mutex);
 	free(g->v);
 	free(g->e);
 	free(g);
