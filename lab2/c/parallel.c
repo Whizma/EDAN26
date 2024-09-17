@@ -366,13 +366,13 @@ static void enter_excess(graph_t* g, node_t* v)
 	 *
 	 */
 	pthread_mutex_lock(&g->mutex);
-	pthread_mutex_lock(&v->mutex);
+	pthread_mutex_trylock(&v->mutex);
 	if (v != g->t && v != g->s) {
 		v->next = g->excess;
 		g->excess = v;
 	}
-	pthread_mutex_unlock(&g->mutex);
 	pthread_mutex_unlock(&v->mutex);
+	pthread_mutex_unlock(&g->mutex);
 }
 
 static node_t* leave_excess(graph_t* g)
@@ -399,8 +399,8 @@ static node_t* leave_excess(graph_t* g)
 static void push(graph_t* g, node_t* u, node_t* v, edge_t* e)
 {
 	pthread_mutex_lock(&g->mutex);
-	pthread_mutex_lock(&u->mutex);
-	pthread_mutex_lock(&v->mutex);
+	pthread_mutex_trylock(&u->mutex);
+	pthread_mutex_trylock(&v->mutex);
 	int		d;	/* remaining capacity of the edge. */
 
 	pr("push from %d to %d: ", id(g, u), id(g, v));
@@ -442,24 +442,24 @@ static void push(graph_t* g, node_t* u, node_t* v, edge_t* e)
 		enter_excess(g, v);
 	}
 
-	pthread_mutex_unlock(&g->mutex);
-	pthread_mutex_unlock(&u->mutex);
 	pthread_mutex_unlock(&v->mutex);
+	pthread_mutex_unlock(&u->mutex);
+	pthread_mutex_unlock(&g->mutex);
 }
 
 static void relabel(graph_t* g, node_t* u)
 {
 	
 	pthread_mutex_lock(&g->mutex);
-	pthread_mutex_lock(&u->mutex);
+	pthread_mutex_trylock(&u->mutex);
 	u->h += 1;
 
 
 	pr("relabel %d now h = %d\n", id(g, u), u->h);
 
 	enter_excess(g, u);
-	pthread_mutex_unlock(&g->mutex);
 	pthread_mutex_unlock(&u->mutex);
+	pthread_mutex_unlock(&g->mutex);
 }
 
 static void* task(void* arg) 
