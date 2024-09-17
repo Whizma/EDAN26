@@ -336,10 +336,21 @@ static graph_t* new_graph(FILE* in, int n, int m)
 		connect(u, v, c, g->e+i);
 	}
 
-	pthread_mutex_init(&g->mutex, NULL);
+	// Initialize recursive mutex attribute object
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	
+	// Initialize g->mutex as recursive
+	pthread_mutex_init(&g->mutex, &attr);
+	
+	// Initialize all g->v[i].mutex as recursive
 	for (i = 0; i < n; i++) {
-		pthread_mutex_init(&g->v[i].mutex, NULL);
+	    pthread_mutex_init(&g->v[i].mutex, &attr);
 	}
+	
+	// Destroy the attribute object after initializing all mutexes
+	pthread_mutexattr_destroy(&attr);
 
 	return g;
 }
@@ -439,14 +450,16 @@ static void push(graph_t* g, node_t* u, node_t* v, edge_t* e)
 static void relabel(graph_t* g, node_t* u)
 {
 	
+	pthread_mutex_lock(&g->mutex);
 	pthread_mutex_lock(&u->mutex);
 	u->h += 1;
-	pthread_mutex_unlock(&u->mutex);
 
 
 	pr("relabel %d now h = %d\n", id(g, u), u->h);
 
 	enter_excess(g, u);
+	pthread_mutex_unlock(&g->mutex);
+	pthread_mutex_unlock(&u->mutex);
 }
 
 static void* task(void* arg) 
@@ -605,7 +618,7 @@ int main(int argc, char* argv[])
 
 	fclose(in);
 
-    int n_threads = 2;
+    int n_threads = 8;
 	f = preflow(g, n_threads);
 
 	printf("f = %d\n", f);
