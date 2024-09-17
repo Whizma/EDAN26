@@ -312,13 +312,10 @@ static graph_t* new_graph(FILE* in, int n, int m)
 	int		a;
 	int		b;
 	int		c;
-
-	pthread_mutex_init(&g->mutex, NULL);
-	for (i = 0; i < n; i++) {
-		pthread_mutex_init(&g->v[i].mutex, NULL);
-	}
 	
 	g = xmalloc(sizeof(graph_t));
+
+
 
 	g->n = n;
 	g->m = m;
@@ -339,6 +336,11 @@ static graph_t* new_graph(FILE* in, int n, int m)
 		connect(u, v, c, g->e+i);
 	}
 
+	pthread_mutex_init(&g->mutex, NULL);
+	for (i = 0; i < n; i++) {
+		pthread_mutex_init(&g->v[i].mutex, NULL);
+	}
+
 	return g;
 }
 
@@ -352,16 +354,19 @@ static void enter_excess(graph_t* g, node_t* v)
 	 * it first is simplest.
 	 *
 	 */
-	
+	pthread_mutex_lock(&g->mutex);
+	pthread_mutex_lock(&v->mutex);
 	if (v != g->t && v != g->s) {
 		v->next = g->excess;
 		g->excess = v;
 	}
+	pthread_mutex_unlock(&g->mutex);
+	pthread_mutex_unlock(&v->mutex);
 }
 
 static node_t* leave_excess(graph_t* g)
 {   
-    ptherad_mutex_lock(&g->mutex);
+    pthread_mutex_lock(&g->mutex);
 	node_t*		v;
 
 	/* take any node from the set of nodes with excess preflow
@@ -376,12 +381,15 @@ static node_t* leave_excess(graph_t* g)
 
 		
 	// pr("%d", id(g, v));
-    ptherad_mutex_unlock(&g->mutex);
+    pthread_mutex_unlock(&g->mutex);
 	return v;
 }
 
 static void push(graph_t* g, node_t* u, node_t* v, edge_t* e)
 {
+	pthread_mutex_lock(&g->mutex);
+	pthread_mutex_lock(&u->mutex);
+	pthread_mutex_lock(&v->mutex);
 	int		d;	/* remaining capacity of the edge. */
 
 	pr("push from %d to %d: ", id(g, u), id(g, v));
@@ -422,11 +430,19 @@ static void push(graph_t* g, node_t* u, node_t* v, edge_t* e)
 
 		enter_excess(g, v);
 	}
+
+	pthread_mutex_unlock(&g->mutex);
+	pthread_mutex_unlock(&u->mutex);
+	pthread_mutex_unlock(&v->mutex);
 }
 
 static void relabel(graph_t* g, node_t* u)
 {
+	
+	pthread_mutex_lock(&u->mutex);
 	u->h += 1;
+	pthread_mutex_unlock(&u->mutex);
+
 
 	pr("relabel %d now h = %d\n", id(g, u), u->h);
 
@@ -589,7 +605,7 @@ int main(int argc, char* argv[])
 
 	fclose(in);
 
-    int n_threads = 1;
+    int n_threads = 2;
 	f = preflow(g, n_threads);
 
 	printf("f = %d\n", f);
