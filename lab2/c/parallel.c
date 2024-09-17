@@ -399,8 +399,15 @@ static node_t* leave_excess(graph_t* g)
 static void push(graph_t* g, node_t* u, node_t* v, edge_t* e)
 {
 	pthread_mutex_lock(&g->mutex);
-	pthread_mutex_trylock(&u->mutex);
-	pthread_mutex_trylock(&v->mutex);
+
+
+	if (u < v) {
+        pthread_mutex_lock(&u->mutex); 
+        pthread_mutex_lock(&v->mutex);
+    } else {
+        pthread_mutex_lock(&v->mutex);
+        pthread_mutex_lock(&u->mutex); 
+    }
 	int		d;	/* remaining capacity of the edge. */
 
 	pr("push from %d to %d: ", id(g, u), id(g, v));
@@ -471,12 +478,15 @@ static void* task(void* arg)
 	edge_t*		e;
 	list_t*		p;
     int		    b;
+	int 		numNodes = 0;
 
+	pthread_mutex_lock(&g->mutex);
     s = g->s;
 	s->h = g->n;
+	pthread_mutex_unlock(&g->mutex);
 
 	p = s->edge;
-    while ((u = leave_excess(g)) != NULL) {
+    while ((u = leave_excess(g)) != NULL) { // hur gör man för att en tråd som lämnar while ska kunna "starta igen" när en nod läggs till
 		// pr("yttre while");
 
 		/* u is any node with excess preflow. */
@@ -494,6 +504,7 @@ static void* task(void* arg)
 
 		v = NULL;
 		p = u->edge;
+		numNodes++;
 
 		while (p != NULL) {
 			e = p->edge;
@@ -518,6 +529,7 @@ static void* task(void* arg)
 		else
 			relabel(g, u);
 	}
+	printf("thread is donezo: %d \n", numNodes);
     return 0;
 }
 

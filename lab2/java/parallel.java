@@ -99,9 +99,12 @@ class Graph {
 
     for (int i = 0; i < nthread; ++i) {
       threads[i] = new Thread(() -> {
+				int numNodes = 0;
 				while (!excess.isEmpty()) {
 					Node u = excess.poll();
+
 					if (u != null) {
+						numNodes++;
 						boolean pushed = false;
 						ListIterator<Edge> iter2 = u.adj.listIterator();
 						while (iter2.hasNext()) {
@@ -128,6 +131,7 @@ class Graph {
 							relabel(u); 
 					}
 				}
+				System.out.println("Thread is done: " + numNodes);
 			});
       threads[i].start();
     }
