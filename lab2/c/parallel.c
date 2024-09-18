@@ -439,8 +439,6 @@ static void push(graph_t* g, node_t* u, node_t* v, edge_t* e)
 		enter_excess(g, v);
 	}
 
-	pthread_mutex_unlock(&v->mutex);
-	pthread_mutex_unlock(&u->mutex);
 	pthread_mutex_unlock(&g->mutex);
 }
 
@@ -514,6 +512,8 @@ static void* task(void* arg)
 
 		if (v != NULL) {
 			push(g, u, v, e);
+			pthread_mutex_unlock(&u->mutex);
+			pthread_mutex_unlock(&v->mutex); 
 		}
 		else {
 			relabel(g, u);
