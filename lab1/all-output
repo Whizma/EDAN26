@@ -1,0 +1,41 @@
+copying runtime jar...
+[info] welcome to sbt 1.10.2 (Oracle Corporation Java 17.0.12)
+[info] loading project definition from /Users/admin/uni/EDAN26/labs/lab1/project
+[info] loading settings for project lab1 from build.sbt ...
+[warn] there are 2 keys that are not used by any other settings/tasks:
+[warn]  
+[warn] * lab1 / run / logLevel
+[warn]   +- /Users/admin/uni/EDAN26/labs/lab1/build.sbt:6
+[warn] * lab1 / showSuccess
+[warn]   +- /Users/admin/uni/EDAN26/labs/lab1/build.sbt:3
+[warn]  
+[warn] note: a setting might still be used by a command; to exclude a key from this `lintUnused` check
+[warn] either append it to `Global / excludeLintKeys` or call .withRank(KeyRanks.Invisible) on the key
+[info] compiling 1 Scala source to /Users/admin/uni/EDAN26/labs/lab1/target/scala-2.12/classes ...
+[info] Non-compiled module 'compiler-bridge_2.12' for Scala 2.12.20. Compiling...
+[info]   Compilation completed in 4.561s.
+[info] done compiling
+[info] running main 
+18:22:33.930 [Main-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
+[error] java.util.NoSuchElementException
+[error] 	at java.base/java.util.Scanner.throwFor(Scanner.java:937)
+[error] 	at java.base/java.util.Scanner.next(Scanner.java:1594)
+[error] 	at java.base/java.util.Scanner.nextInt(Scanner.java:2258)
+[error] 	at java.base/java.util.Scanner.nextInt(Scanner.java:2212)
+[error] 	at main$.delayedEndpoint$main$1(preflow.scala:236)
+[error] 	at main$delayedInit$body.apply(preflow.scala:222)
+[error] 	at scala.Function0.apply$mcV$sp(Function0.scala:39)
+[error] 	at scala.Function0.apply$mcV$sp$(Function0.scala:39)
+[error] 	at scala.runtime.AbstractFunction0.apply$mcV$sp(AbstractFunction0.scala:17)
+[error] 	at scala.App.$anonfun$main$1$adapted(App.scala:80)
+[error] 	at scala.collection.immutable.List.foreach(List.scala:431)
+[error] 	at scala.App.main(App.scala:80)
+[error] 	at scala.App.main$(App.scala:78)
+[error] 	at main$.main(preflow.scala:222)
+[error] 	at main.main(preflow.scala)
+[error] 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[error] 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+[error] 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[error] 	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+[error] stack trace is suppressed; run 'last Compile / run' for the full output
+[error] (Compile / run) java.util.NoSuchElementException

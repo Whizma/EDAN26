@@ -7,7 +7,7 @@ logLevel in run := Level.Error
 
 version := "1.10.1"
 
-scalaVersion := "2.13.14"
+scalaVersion := "2.12.20"
 
 lazy val akkaVersion = "2.6.14"
 
