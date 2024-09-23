@@ -78,9 +78,9 @@ typedef struct command command;
 struct command
 {
 	int push;
-	node_t* u;
-	node_t* v;
-	edge_t* edge;
+	node_t *u;
+	node_t *v;
+	edge_t *edge;
 	int flow;
 };
 
@@ -92,6 +92,7 @@ struct myargs
 	int count;
 	node_t *nodes; // Pointer to an array of node_t structures
 	int capacity;
+	command *commands;
 };
 
 struct list_t
@@ -398,24 +399,98 @@ static node_t *leave_excess(graph_t *g)
 	return v;
 }
 
-
-static void push(graph_t *g, node_t *u, node_t *v, edge_t *e)
+static void *phase_1(void *arg)
 {
-	int d; /* remaining capacity of the edge. */
+	node_t *s;
+	node_t *u;
+	node_t *v;
+	edge_t *e;
+	list_t *p;
+	int d;
+	int b;
+	myargs *args = arg;
+	graph_t *g = args->g;
+	command *current;
 
+	while (args->count > 0)
+	{
+		u = &args->nodes[args->count - 1];
+		// args->nodes[args->count] = NULL; // OBS ! LÄSKIG!
+		v = NULL;
+		p = u->edge;
+
+		while (p != NULL)
+		{
+			e = p->edge;
+			p = p->next;
+
+			if (u == e->u)
+			{
+				v = e->v;
+				b = 1;
+			}
+			else
+			{
+				v = e->u;
+				b = -1;
+			}
+
+			if (u->h > v->h && b * e->f < e->c)
+			{
+				break;
+			}
+			else
+			{
+				v = NULL;
+			}
+		}
+		current = &(args->commands[args->count - 1]);
+		current->u = u;
+		if (v != NULL)
+		{
+			// push instruct
+			if (u == e->u)
+			{
+				d = MIN(u->e, e->c - e->f);
+				e->f += d;
+			}
+			else
+			{
+				d = MIN(u->e, e->c + e->f);
+				e->f -= d;
+			}
+
+			// lägg till push command
+			current->v = v;
+			current->flow = d;
+			current->edge = e;
+			current->push = 1;
+		}
+		else
+		{
+			// lägg till relabel command
+			current->push = 0;
+		}
+		args->count -= 1;
+	}
+	pthread_barrier_wait(args->barrier);
+
+	return 0;
+}
+
+
+static void relabel(graph_t *g, node_t *u)
+{
+	u->h += 1;
+	pr("relabel %d now h = %d\n", id(g, u), u->h);
+	enter_excess(g, u);
+}
+
+static void push(graph_t *g, node_t *u, node_t *v, edge_t *e, int d)
+{
 	pr("push from %d to %d: ", id(g, u), id(g, v));
 	pr("f = %d, c = %d, so ", e->f, e->c);
 
-	if (u == e->u)
-	{
-		d = MIN(u->e, e->c - e->f);
-		e->f += d;
-	}
-	else
-	{
-		d = MIN(u->e, e->c + e->f);
-		e->f -= d;
-	}
 
 	pr("pushing %d\n", d);
 
@@ -448,80 +523,93 @@ static void push(graph_t *g, node_t *u, node_t *v, edge_t *e)
 	}
 }
 
-static void relabel(graph_t *g, node_t *u)
+static void *phase2(graph_t *g, myargs *arg, int n_threads)
 {
-	u->h += 1;
-	pr("relabel %d now h = %d\n", id(g, u), u->h);
-	enter_excess(g, u);
-}
-
-static void *task(void *arg)
-{
-	myargs *args = arg;
-	graph_t *g = args->g;
-	node_t *s;
-	node_t *u;
-	node_t *v;
-	edge_t *e;
-	list_t *p;
-	int b;
-
-	s = g->s;
-	s->h = g->n;
-	p = s->edge;
-
-	while ((u = leave_excess(g)) != NULL)
-	{ // hur gör man för att en tråd som lämnar while ska kunna "starta igen" när en nod läggs till
-		// pr("yttre while");
-
-		/* u is any node with excess preflow. */
-		pr("selected u = %d with ", id(g, u));
-		pr("h = %d and e = %d\n", u->h, u->e);
-
-		/* if we can push we must push and only if we could
-		 * not push anything, we are allowed to relabel.
-		 *
-		 * we can push to multiple nodes if we wish but
-		 * here we just push once for simplicity.
-		 *
-		 */
-
-		v = NULL;
-		p = u->edge;
-
-		while (p != NULL)
+	command *current;
+	for (int i = 0; i < n_threads; i++)
+	{
+		for (int j = 0; j < arg[i].nbrNodes; j++)
 		{
-			e = p->edge;
-			p = p->next;
-
-			if (u == e->u)
+			current = &(arg[i].commands[j]);
+			if (current->push == 1)
 			{
-				v = e->v;
-				b = 1;
+				push(g, current->u, current->v, current->edge, current->flow);
 			}
 			else
 			{
-				v = e->u;
-				b = -1;
+				relabel(g, current->u);
 			}
-
-			if (u->h > v->h && b * e->f < e->c)
-				break;
-			else
-				v = NULL;
-		}
-
-		if (v != NULL)
-		{
-			push(g, u, v, e);
-		}
-		else
-		{
-			relabel(g, u);
 		}
 	}
-	return 0;
 }
+
+// static void *task(void *arg)
+// {
+// 	myargs *args = arg;
+// 	graph_t *g = args->g;
+// 	node_t *s;
+// 	node_t *u;
+// 	node_t *v;
+// 	edge_t *e;
+// 	list_t *p;
+// 	int b;
+
+// 	s = g->s;
+// 	s->h = g->n;
+// 	p = s->edge;
+
+// 	while ((u = leave_excess(g)) != NULL)
+// 	{ // hur gör man för att en tråd som lämnar while ska kunna "starta igen" när en nod läggs till
+// 		// pr("yttre while");
+
+// 		/* u is any node with excess preflow. */
+// 		pr("selected u = %d with ", id(g, u));
+// 		pr("h = %d and e = %d\n", u->h, u->e);
+
+// 		/* if we can push we must push and only if we could
+// 		 * not push anything, we are allowed to relabel.
+// 		 *
+// 		 * we can push to multiple nodes if we wish but
+// 		 * here we just push once for simplicity.
+// 		 *
+// 		 */
+
+// 		v = NULL;
+// 		p = u->edge;
+
+// 		while (p != NULL)
+// 		{
+// 			e = p->edge;
+// 			p = p->next;
+
+// 			if (u == e->u)
+// 			{
+// 				v = e->v;
+// 				b = 1;
+// 			}
+// 			else
+// 			{
+// 				v = e->u;
+// 				b = -1;
+// 			}
+
+// 			if (u->h > v->h && b * e->f < e->c)
+// 				break;
+// 			else
+// 				v = NULL;
+// 		}
+
+// 		if (v != NULL)
+// 		{
+// 			push(g, u, v, e);
+// 		}
+// 		else
+// 		{
+// 			relabel(g, u);
+// 		}
+// 	}
+// 	return 0;
+// }
 
 static node_t *other(node_t *u, edge_t *e)
 {
@@ -537,21 +625,19 @@ static void giveNodes(graph_t *g, myargs *arg, int n_threads)
 	for (int i = 0; i < n_threads; i++)
 	{
 		arg[i].nbrNodes = 0;
-		arg[i].capacity = 2;
-		arg[i].nodes = malloc(2 * sizeof u[0]);
-		if (u == NULL)
-			error("no memory"); 
 	}
 	int i = 0;
 	int j = 0;
 	while ((u = leave_excess(g)) != NULL)
 	{
 		arg[i].count += 1;
-		if (j == arg[i].capacity) {
+		if (j == arg[i].capacity)
+		{
 			node_t *v;
 			arg[i].capacity *= 2;
 			v = realloc(v, arg[i].capacity * sizeof u[0]);
-			if (v == NULL) {
+			if (v == NULL)
+			{
 				error("no memory");
 			}
 			u = v;
@@ -578,11 +664,11 @@ int preflow(graph_t *g, int n_threads)
 	node_t *v;
 	edge_t *e;
 	list_t *p;
+	command *c;
 	int b;
 	pthread_t threads[n_threads];
 	pthread_barrier_t barrier;
 	pthread_barrier_init(&barrier, NULL, n_threads);
-
 	pthread_barrier_wait(&barrier);
 
 	myargs arg[n_threads];
@@ -592,39 +678,55 @@ int preflow(graph_t *g, int n_threads)
 		arg[i].barrier = &barrier;
 		arg[i].count = 0;
 		arg[i].nbrNodes = 0;
+		arg[i].capacity = 2;
+		arg[i].nodes = malloc(2 * sizeof u[0]);
+		if (u == NULL)
+			error("no memory");
+		arg[i].commands = malloc(2 * sizeof c[0]);
+		if (c == NULL)
+			error("no memory");
 	}
 
 	s = g->s;
 	s->h = g->n;
 	p = s->edge;
 
-	/* start by pushing as much as possible (limited by
-	 * the edge capacity) from the source to its neighbors.
-	 *
-	 */
-
-	while (p != NULL)
-	{
+	while (p != NULL) {
 		e = p->edge;
 		p = p->next;
 
 		s->e += e->c;
-		push(g, s, other(s, e), e);
-
-		myargs arg = {g};
-		for (int i = 0; i < n_threads; i++)
-		{
-			pthread_create(&threads[i], NULL, task, (void *)&g);
-		}
-
-		for (int i = 0; i < n_threads; i++)
-		{
-			pthread_join(threads[i], NULL);
-		}
+		push(g, s, other(s, e), e, e->c);
 	}
 
-	/* then loop until only s and/or t have excess preflow. */
+	/* start by pushing as much as possible (limited by
+	 * the edge capacity) from the source to its neighbors.
+	 *
+	 */
+	giveNodes(g, arg, n_threads);
+	for (int i = 0; i < n_threads; i += 1){
+    pthread_create(&threads[i], NULL, phase_1, &arg[i]);
+  }
+  pthread_barrier_wait(&barrier);
+	while(1) {
+    phase2(g,arg,n_threads);
+    if(g->excess == NULL){
+      break;
+    }
+    giveNodes(g,arg,n_threads);
+    pthread_barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier);
+  }
 
+	pthread_barrier_wait(&barrier);	
+
+ 	for (int i = 0; i < n_threads; i += 1){
+    pthread_join(threads[i], NULL);
+  }
+ 	for (int i = 0; i < n_threads; i++) {
+    free(arg[i].nodes);
+    free(arg[i].commands);
+  }
 	return g->t->e;
 }
 
