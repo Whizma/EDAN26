@@ -478,7 +478,6 @@ static void *phase_1(void *arg)
 	return 0;
 }
 
-
 static void relabel(graph_t *g, node_t *u)
 {
 	u->h += 1;
@@ -490,7 +489,6 @@ static void push(graph_t *g, node_t *u, node_t *v, edge_t *e, int d)
 {
 	pr("push from %d to %d: ", id(g, u), id(g, v));
 	pr("f = %d, c = %d, so ", e->f, e->c);
-
 
 	pr("pushing %d\n", d);
 
@@ -541,6 +539,7 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 			}
 		}
 	}
+	return 0;
 }
 
 // static void *task(void *arg)
@@ -691,7 +690,8 @@ int preflow(graph_t *g, int n_threads)
 	s->h = g->n;
 	p = s->edge;
 
-	while (p != NULL) {
+	while (p != NULL)
+	{
 		e = p->edge;
 		p = p->next;
 
@@ -704,29 +704,34 @@ int preflow(graph_t *g, int n_threads)
 	 *
 	 */
 	giveNodes(g, arg, n_threads);
-	for (int i = 0; i < n_threads; i += 1){
-    pthread_create(&threads[i], NULL, phase_1, &arg[i]);
-  }
-  pthread_barrier_wait(&barrier);
-	while(1) {
-    phase2(g,arg,n_threads);
-    if(g->excess == NULL){
-      break;
-    }
-    giveNodes(g,arg,n_threads);
-    pthread_barrier_wait(&barrier);
-    pthread_barrier_wait(&barrier);
-  }
+	for (int i = 0; i < n_threads; i += 1)
+	{
+		pthread_create(&threads[i], NULL, phase_1, &arg[i]);
+	}
+	pthread_barrier_wait(&barrier);
+	while (1)
+	{
+		phase2(g, arg, n_threads);
+		if (g->excess == NULL)
+		{
+			break;
+		}
+		giveNodes(g, arg, n_threads);
+		pthread_barrier_wait(&barrier);
+		pthread_barrier_wait(&barrier);
+	}
 
-	pthread_barrier_wait(&barrier);	
+	pthread_barrier_wait(&barrier);
 
- 	for (int i = 0; i < n_threads; i += 1){
-    pthread_join(threads[i], NULL);
-  }
- 	for (int i = 0; i < n_threads; i++) {
-    free(arg[i].nodes);
-    free(arg[i].commands);
-  }
+	for (int i = 0; i < n_threads; i += 1)
+	{
+		pthread_join(threads[i], NULL);
+	}
+	for (int i = 0; i < n_threads; i++)
+	{
+		free(arg[i].nodes);
+		free(arg[i].commands);
+	}
 	return g->t->e;
 }
 
