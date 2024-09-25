@@ -37,7 +37,7 @@
 #include "pthread_barrier.h"
 
 #define APPLE 1
-#define PRINT 0 /* enable/disable prints. */
+#define PRINT 1 /* enable/disable prints. */
 
 /* the funny do-while next clearly performs one iteration of the loop.
  * if you are really curious about why there is a loop, please check
@@ -399,7 +399,7 @@ static node_t *leave_excess(graph_t *g)
 	return v;
 }
 
-static void *phase_1(void *arg)
+static void *phase1(void *arg)
 {
 	node_t *s;
 	node_t *u;
@@ -411,6 +411,8 @@ static void *phase_1(void *arg)
 	myargs *args = arg;
 	graph_t *g = args->g;
 	command *current;
+
+	pthread_barrier_wait(args->barrier);
 
 	while (args->count > 0)
 	{
@@ -448,7 +450,6 @@ static void *phase_1(void *arg)
 		current->u = u;
 		if (v != NULL)
 		{
-			// push instruct
 			if (u == e->u)
 			{
 				d = MIN(u->e, e->c - e->f);
@@ -464,16 +465,20 @@ static void *phase_1(void *arg)
 			current->v = v;
 			current->flow = d;
 			current->edge = e;
+			printf("sätter push 1\n");
 			current->push = 1;
 		}
 		else
 		{
 			// lägg till relabel command
+			printf("sätter push 0\n");
 			current->push = 0;
 		}
 		args->count -= 1;
 	}
 	pthread_barrier_wait(args->barrier);
+	pthread_barrier_wait(args->barrier);
+
 
 	return 0;
 }
@@ -529,6 +534,11 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 		for (int j = 0; j < arg[i].nbrNodes; j++)
 		{
 			current = &(arg[i].commands[j]);
+			if (current->u == NULL) {
+      			error("Null pointer 'current->u' in phase2\n");
+      		}
+			printf("current->u node: %d\n", id(g, current->u)); 
+
 			if (current->push == 1)
 			{
 				push(g, current->u, current->v, current->edge, current->flow);
@@ -621,12 +631,14 @@ static node_t *other(node_t *u, edge_t *e)
 static void giveNodes(graph_t *g, myargs *arg, int n_threads)
 {
 	node_t *u;
-	for (int i = 0; i < n_threads; i++)
+	int i;
+	int j;
+	for (i = 0; i < n_threads; i++)
 	{
 		arg[i].nbrNodes = 0;
 	}
-	int i = 0;
-	int j = 0;
+	i = 0;
+	j = 0;
 	while ((u = leave_excess(g)) != NULL)
 	{
 		arg[i].count += 1;
@@ -637,12 +649,22 @@ static void giveNodes(graph_t *g, myargs *arg, int n_threads)
 			v = realloc(v, arg[i].capacity * sizeof u[0]);
 			if (v == NULL)
 			{
-				error("no memory");
+				error("no memory 647");
 			}
 			u = v;
+
+			command *c;
+			c = realloc(c, arg[i].capacity * sizeof c[0]);
+			if (c == NULL)
+			{
+				error("no memory 655");
+			}
+			arg[i].commands = c;
+			
 		}
 		arg[i].nodes[arg[i].nbrNodes] = *u;
-		arg[i].nbrNodes += 1;
+		arg[i].nbrNodes += 1;		
+
 
 		if (i < n_threads - 1)
 		{
@@ -666,25 +688,6 @@ int preflow(graph_t *g, int n_threads)
 	command *c;
 	int b;
 	pthread_t threads[n_threads];
-	pthread_barrier_t barrier;
-	pthread_barrier_init(&barrier, NULL, n_threads);
-	pthread_barrier_wait(&barrier);
-
-	myargs arg[n_threads];
-	for (int i = 0; i < n_threads; i++)
-	{
-		arg[i].g = g;
-		arg[i].barrier = &barrier;
-		arg[i].count = 0;
-		arg[i].nbrNodes = 0;
-		arg[i].capacity = 2;
-		arg[i].nodes = malloc(2 * sizeof u[0]);
-		if (u == NULL)
-			error("no memory");
-		arg[i].commands = malloc(2 * sizeof c[0]);
-		if (c == NULL)
-			error("no memory");
-	}
 
 	s = g->s;
 	s->h = g->n;
@@ -699,6 +702,26 @@ int preflow(graph_t *g, int n_threads)
 		push(g, s, other(s, e), e, e->c);
 	}
 
+	pthread_barrier_t barrier;
+	pthread_barrier_init(&barrier, NULL, n_threads);
+	pthread_barrier_wait(&barrier);
+
+	myargs arg[n_threads];
+	for (int i = 0; i < n_threads; i++)
+	{
+		arg[i].g = g;
+		arg[i].barrier = &barrier;
+		arg[i].count = 0;
+		arg[i].nbrNodes = 0;
+		arg[i].capacity = 2;
+		arg[i].nodes = malloc(2 * sizeof u[0]);
+		if (arg[i].nodes == NULL)
+			error("no memory683");
+		arg[i].commands = malloc(2 * sizeof c[0]);
+		if (arg[i].commands == NULL)
+			error("no memory686");
+	}
+
 	/* start by pushing as much as possible (limited by
 	 * the edge capacity) from the source to its neighbors.
 	 *
@@ -706,9 +729,11 @@ int preflow(graph_t *g, int n_threads)
 	giveNodes(g, arg, n_threads);
 	for (int i = 0; i < n_threads; i += 1)
 	{
-		pthread_create(&threads[i], NULL, phase_1, &arg[i]);
+		pthread_create(&threads[i], NULL, phase1, &arg[i]);
 	}
 	pthread_barrier_wait(&barrier);
+	pthread_barrier_wait(&barrier);
+
 	while (1)
 	{
 		phase2(g, arg, n_threads);
