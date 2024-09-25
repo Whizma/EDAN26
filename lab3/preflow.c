@@ -36,7 +36,7 @@
 #include <pthread.h>
 #include "pthread_barrier.h"
 
-#define APPLE 1
+#define APPLE 0
 #define PRINT 1 /* enable/disable prints. */
 
 /* the funny do-while next clearly performs one iteration of the loop.
@@ -125,6 +125,7 @@ struct graph_t
 	node_t *s;		/* source.			*/
 	node_t *t;		/* sink.			*/
 	node_t *excess; /* nodes with e > 0 except s,t.	*/
+	int working;
 };
 
 /* a remark about C arrays. the phrase above 'array of n nodes' is using
@@ -341,6 +342,7 @@ static graph_t *new_graph(FILE *in, int n, int m)
 
 	g->n = n;
 	g->m = m;
+	g->working = 0;
 
 	g->v = xcalloc(n, sizeof(node_t));
 	g->e = xcalloc(m, sizeof(edge_t));
@@ -400,7 +402,6 @@ static node_t *leave_excess(graph_t *g)
 
 static void *phase1(void *arg)
 {
-	printf("phase1 börjar\n");
 	node_t *s;
 	node_t *u;
 	node_t *v;
@@ -411,19 +412,13 @@ static void *phase1(void *arg)
 	myargs *args = arg;
 	graph_t *g = args->g;
 	command *current;
-	//printf("pre wait i thread\n");
 	pthread_barrier_wait(args->barrier);
-	//printf("post wait i thread\n");
 
+work:
 	while (args->count > 0)
 	{
-		u = &args->nodes[args->count - 1];
-		// args->nodes[args->count] = NULL; // OBS ! LÄSKIG!
-		if (args->count > 0)
-		{
-			args->nodes[args->count - 1].next = NULL;
-		}
-		// Decrement the count to reflect the removal of the 'used' node
+		u = &args->nodes[args->count +174];
+
 		args->count -= 1;
 		v = NULL;
 		p = u->edge;
@@ -472,24 +467,23 @@ static void *phase1(void *arg)
 			current->v = v;
 			current->flow = d;
 			current->edge = e;
-			//printf("sätter push 1\n");
 			current->push = 1;
 		}
 		else
 		{
 			// lägg till relabel command
-			//printf("sätter push 0\n");
 			current->push = 0;
 		}
-		args->count -= 1;
+		// args->count -= 1;
 	}
 
-	printf("phase1 slut\n");
 	pthread_barrier_wait(args->barrier);
-	printf("mellan wait i phase1\n");
 	pthread_barrier_wait(args->barrier);
-	printf("efter wait i phase1\n");
 
+	if (g->working == 1)
+	{
+		goto work;
+	}
 	return 0;
 }
 
@@ -538,7 +532,6 @@ static void push(graph_t *g, node_t *u, node_t *v, edge_t *e, int d)
 
 static void *phase2(graph_t *g, myargs *arg, int n_threads)
 {
-	printf("phase2\n");
 	command *current;
 
 	current = &(arg[0].commands[0]);
@@ -550,14 +543,10 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 
 			if (current->push == 1)
 			{
-				printf("Vi försöker göra push\n");
-				printf("%d %d %d %d\n",current->u, current->v, current->edge, current->flow);
 				push(g, current->u, current->v, current->edge, current->flow);
 			}
 			else
 			{
-				printf("Vi försöker göra relabel\n");
-				printf("%d %d %d %d\n",current->u, current->v, current->edge, current->flow);
 				relabel(g, current->u);
 			}
 		}
@@ -584,7 +573,9 @@ static void giveNodes(graph_t *g, myargs *arg, int n_threads)
 	}
 	i = 0;
 	while ((u = leave_excess(g)) != NULL)
-	{	
+	{
+		pr("selected u = %d with ", id(g, u));
+		pr("h = %d and e = %d\n", u->h, u->e);
 		arg[i].nodes[arg[i].count] = *u;
 		arg[i].count += 1;
 		arg[i].nbrNodes += 1;
@@ -614,6 +605,7 @@ int preflow(graph_t *g, int n_threads, int nbr_of_nodes)
 	s = g->s;
 	s->h = g->n;
 	p = s->edge;
+	g->working = 1;
 
 	while (p != NULL)
 	{
@@ -651,43 +643,33 @@ int preflow(graph_t *g, int n_threads, int nbr_of_nodes)
 	{
 		pthread_create(&threads[i], NULL, phase1, &arg[i]);
 	}
-	//printf("innan barrier i preflow\n");
 	pthread_barrier_wait(&barrier);
-	//printf("mellan barrier i preflow\n");
 	pthread_barrier_wait(&barrier);
-	//printf("efter barrier i preflow\n");
 
-	printf("excess innan while %d\n", g->excess);
 	while (1)
 	{
 		phase2(g, arg, n_threads);
-		printf("excess i while %d\n", g->excess);
 		if (g->excess == NULL)
 		{
 			break;
 		}
-		printf("kommer vi till givenode?\n");
 		giveNodes(g, arg, n_threads);
-		printf("ja det gjorde vi\n");
 		pthread_barrier_wait(&barrier);
-		printf("mellan wait i preflow\n");
 		pthread_barrier_wait(&barrier);
-		printf("efter wait i preflow\n");
 	}
 
-	printf("innan while i preflow\n");
+	g->working = 0;
 	pthread_barrier_wait(&barrier);
-	printf("efter while i preflow\n");
 
 	for (int i = 0; i < n_threads; i += 1)
 	{
 		pthread_join(threads[i], NULL);
 	}
-	for (int i = 0; i < n_threads; i++)
-	{
-		free(arg[i].nodes);
-		free(arg[i].commands);
-	}
+	// for (int i = 0; i < n_threads; i++)
+	// {
+	// 	free(arg[i].nodes);
+	// 	free(arg[i].commands);
+	// }
 	return g->t->e;
 }
 
@@ -697,13 +679,13 @@ static void free_graph(graph_t *g)
 	list_t *p;
 	list_t *q;
 
-	p = g->v[i].edge;
-	while (p != NULL)
-	{
-		q = p->next;
-		free(p);
-		p = q;
-	}
+	// p = g->v[i].edge;
+	// while (p != NULL)
+	// {
+	// 	q = p->next;
+	// 	free(p);
+	// 	p = q;
+	// }
 	free(g->v);
 	free(g->e);
 	free(g);
