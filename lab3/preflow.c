@@ -400,7 +400,7 @@ static node_t *leave_excess(graph_t *g)
 
 static void *phase1(void *arg)
 {
-	printf("phase1\n");
+	printf("phase1 börjar\n");
 	node_t *s;
 	node_t *u;
 	node_t *v;
@@ -411,9 +411,9 @@ static void *phase1(void *arg)
 	myargs *args = arg;
 	graph_t *g = args->g;
 	command *current;
-	printf("pre wait i thread\n");
+	//printf("pre wait i thread\n");
 	pthread_barrier_wait(args->barrier);
-	printf("post wait i thread\n");
+	//printf("post wait i thread\n");
 
 	while (args->count > 0)
 	{
@@ -453,7 +453,7 @@ static void *phase1(void *arg)
 				v = NULL;
 			}
 		}
-		current = &(args->commands[args->count - 1]);
+		current = &(args->commands[args->count]);
 		current->u = u;
 		if (v != NULL)
 		{
@@ -472,22 +472,23 @@ static void *phase1(void *arg)
 			current->v = v;
 			current->flow = d;
 			current->edge = e;
-			printf("sätter push 1\n");
+			//printf("sätter push 1\n");
 			current->push = 1;
 		}
 		else
 		{
 			// lägg till relabel command
-			printf("sätter push 0\n");
+			//printf("sätter push 0\n");
 			current->push = 0;
 		}
 		args->count -= 1;
 	}
-	printf("Adress current u i phase1, %d\n", id(g, current->u));
+
 	printf("phase1 slut\n");
 	pthread_barrier_wait(args->barrier);
 	printf("mellan wait i phase1\n");
 	pthread_barrier_wait(args->barrier);
+	printf("efter wait i phase1\n");
 
 	return 0;
 }
@@ -545,27 +546,18 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 	{
 		for (int j = 0; j < arg[i].nbrNodes; j++)
 		{
-			printf("Här är vi: %d\n", id(g, current->u));
-		}
-	}
-	for (int i = 0; i < n_threads; i++)
-	{
-		for (int j = 0; j < arg[i].nbrNodes; j++)
-		{
 			current = &(arg[i].commands[j]);
-			if (current->u == NULL)
-			{
-				printf("Null pointer 'current->u' in phase2\n");
-			}
-			printf("current->u node: %d\n", id(g, current->u));
 
 			if (current->push == 1)
 			{
+				printf("Vi försöker göra push\n");
+				printf("%d %d %d %d\n",current->u, current->v, current->edge, current->flow);
 				push(g, current->u, current->v, current->edge, current->flow);
 			}
 			else
 			{
-				printf("Vi förösöker göra relabel\n");
+				printf("Vi försöker göra relabel\n");
+				printf("%d %d %d %d\n",current->u, current->v, current->edge, current->flow);
 				relabel(g, current->u);
 			}
 		}
@@ -592,7 +584,7 @@ static void giveNodes(graph_t *g, myargs *arg, int n_threads)
 	}
 	i = 0;
 	while ((u = leave_excess(g)) != NULL)
-	{
+	{	
 		arg[i].nodes[arg[i].count] = *u;
 		arg[i].count += 1;
 		arg[i].nbrNodes += 1;
@@ -658,25 +650,34 @@ int preflow(graph_t *g, int n_threads, int nbr_of_nodes)
 	for (int i = 0; i < n_threads; i += 1)
 	{
 		pthread_create(&threads[i], NULL, phase1, &arg[i]);
-		printf("thread created: %d\n", i);
 	}
+	//printf("innan barrier i preflow\n");
 	pthread_barrier_wait(&barrier);
+	//printf("mellan barrier i preflow\n");
 	pthread_barrier_wait(&barrier);
+	//printf("efter barrier i preflow\n");
 
+	printf("excess innan while %d\n", g->excess);
 	while (1)
 	{
 		phase2(g, arg, n_threads);
+		printf("excess i while %d\n", g->excess);
 		if (g->excess == NULL)
 		{
 			break;
 		}
 		printf("kommer vi till givenode?\n");
 		giveNodes(g, arg, n_threads);
+		printf("ja det gjorde vi\n");
 		pthread_barrier_wait(&barrier);
+		printf("mellan wait i preflow\n");
 		pthread_barrier_wait(&barrier);
+		printf("efter wait i preflow\n");
 	}
 
+	printf("innan while i preflow\n");
 	pthread_barrier_wait(&barrier);
+	printf("efter while i preflow\n");
 
 	for (int i = 0; i < n_threads; i += 1)
 	{
