@@ -415,6 +415,8 @@ static void *phase1(void *arg)
 	command *current;
 	pthread_barrier_wait(args->barrier);
 
+	int nodes_processed = 0;
+
 	while (!g->shouldTerminate)
 	{
 
@@ -424,6 +426,7 @@ static void *phase1(void *arg)
 			args->nodes[args->count] = NULL;
 			v = NULL;
 			p = u->edge;
+			nodes_processed += 1;
 
 			while (p != NULL)
 			{
@@ -486,6 +489,7 @@ static void *phase1(void *arg)
 		pthread_barrier_wait(args->barrier);
 	}
 
+	printf("Nodes processed: %d\n", nodes_processed);
 	return 0;
 }
 
@@ -704,7 +708,7 @@ int main(int argc, char *argv[])
 
 	fclose(in);
 
-	int n_threads = 12;
+	int n_threads = 8;
 	f = preflow(g, n_threads, n);
 
 	printf("f = %d\n", f);

@@ -1,4 +1,3 @@
 main:
-	gcc -o preflow preflow.c -g -O3
-	time sh check-solution.sh ./preflow
+	time sh check-solution.sh pypy algo.py
 	@echo PASS all tests
