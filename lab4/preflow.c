@@ -38,7 +38,7 @@
 #include <stdatomic.h>
 
 #define APPLE 0
-#define PRINT 1 /* enable/disable prints. */
+#define PRINT 0 /* enable/disable prints. */
 #define SIZE 100ULL
 
 /* the funny do-while next clearly performs one iteration of the loop.
@@ -109,6 +109,7 @@ struct node_t
 	list_t *edge;  /* adjacency list.		*/
 	node_t *next;  /* with excess preflow.		*/
 	_Atomic int acc_ex;
+	_Atomic int active;
 };
 
 struct edge_t
@@ -377,10 +378,11 @@ static void enter_excess(graph_t *g, node_t *v)
 	 * it first is simplest.
 	 *
 	 */
-	if (v != g->t && v != g->s)
+	if (v->active != 1 && v != g->t && v != g->s)
 	{
 		v->next = g->excess;
 		g->excess = v;
+		v->active = 1;
 	}
 }
 
@@ -397,6 +399,7 @@ static node_t *leave_excess(graph_t *g)
 	if (v != NULL)
 	{
 		g->excess = v->next;
+		v->active = 0;
 	}
 
 	// pr("%d", id(g, v));
@@ -464,24 +467,15 @@ static void *phase1(void *arg)
 				if (u == e->u)
 				{
 					d = MIN(u->e, e->c - e->f);
-					// e->f += d;
-				}
-				else
-				{
-					d = MIN(u->e, e->c + e->f);
-					// e->f -= d;
-				}
-				u->e -= d;
-
-				if (u == e->u)
-				{
 					e->f += d;
 				}
 				else
 				{
+					d = MIN(u->e, e->c + e->f);
 					e->f -= d;
 				}
 
+				u->acc_ex -= d;
 				v->acc_ex += d;
 				// lägg till push command
 				// u.e och e.f är nu A
@@ -554,7 +548,6 @@ static void push(graph_t *g, node_t *u, node_t *v, edge_t *e, int d)
 static void *phase2(graph_t *g, myargs *arg, int n_threads)
 {
 	command *current;
-	node_t *u;
 
 	current = &(arg[0].commands[0]);
 	for (int i = 0; i < n_threads; i++)
@@ -562,34 +555,24 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 		for (int j = 0; j < arg[i].nbrNodes; j++)
 		{
 			current = &(arg[i].commands[j]);
-			u = current->u;
-			v = current->v;
 
-			// u = arg[i].nodes[j];
-
-			int added = atomic_exchange(&u->acc_ex, 0);
-			u->e += added;
-
-			if (u->e > 0)
+			if (current->push)
 			{
 
-				/* still some remaining so let u push more. */
-
-				enter_excess(g, u);
+				if (current->u->acc_ex != 0)
+				{
+					int added = atomic_exchange(&current->u->acc_ex, 0);
+					current->u->e += added;
+					enter_excess(g, current->u);
+				}
+				if (current->v->acc_ex != 0)
+				{
+					int added = atomic_exchange(&current->v->acc_ex, 0);
+					current->v->e += added;
+					enter_excess(g, current->v);
+				}
 			}
-
-			if (v->e == d)
-			{
-
-				/* since v has d excess now it had zero before and
-				 * can now push.
-				 *
-				 */
-
-				enter_excess(g, v);
-			}
-
-			if (!current->push)
+			else
 			{
 				relabel(g, current->u);
 			}
