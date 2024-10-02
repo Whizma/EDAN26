@@ -37,9 +37,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define APPLE 0
+#define APPLE 1
 #define PRINT 0 /* enable/disable prints. */
+<<<<<<< HEAD
 #define SIZE 150ULL
+=======
+#define SIZE 200ULL
+>>>>>>> d64ca060be6357dbeae9fe223052dd24873a4685
 
 /* the funny do-while next clearly performs one iteration of the loop.
  * if you are really curious about why there is a loop, please check
@@ -422,6 +426,7 @@ static void *phase1(void *arg) {
           b = -1;
         }
 
+<<<<<<< HEAD
         if (u->h > v->h && b * e->f < e->c) {
           break;
         } else {
@@ -430,9 +435,27 @@ static void *phase1(void *arg) {
       }
       current = &(args->commands[args->count - 1]);
       current->u = u;
+=======
+				// if (u->h > v->h && b * e->f < e->c)
+				// {
+				// 	break;
+				// }
+				if (atomic_load_explicit(&(u->h), memory_order_relaxed) > atomic_load_explicit(&(v->h), memory_order_relaxed) && b * atomic_load_explicit(&(e->f), memory_order_relaxed) < atomic_load_explicit(&(e->c), memory_order_relaxed))
+				{
+					break;
+				}
+				else
+				{
+					v = NULL;
+				}
+			}
+			current = &(args->commands[args->count - 1]);
+			current->u = u;
+>>>>>>> d64ca060be6357dbeae9fe223052dd24873a4685
 
       if (v != NULL) {
 
+<<<<<<< HEAD
         if (u == e->u) {
           d = MIN(u->e, e->c - e->f);
           e->f += d;
@@ -445,6 +468,35 @@ static void *phase1(void *arg) {
         v->acc_ex += d;
         // lägg till push command
         // u.e och e.f är nu A
+=======
+				// if (u == e->u)
+				// {
+				// 	d = MIN(u->e, e->c - e->f);
+				// 	e->f += d;
+				// }
+				// else
+				// {
+				// 	d = MIN(u->e, e->c + e->f);
+				// 	e->f -= d;
+				// }
+				if (u == e->u)
+				{
+					d = MIN(atomic_load_explicit(&(u->e), memory_order_relaxed), atomic_load_explicit(&(e->c), memory_order_relaxed) - atomic_load_explicit(&(e->f), memory_order_relaxed));
+					atomic_fetch_add_explicit(&(e->f), d, memory_order_relaxed);
+				}
+				else
+				{
+					d = MIN(atomic_load_explicit(&(u->e), memory_order_relaxed), atomic_load_explicit(&(e->c), memory_order_relaxed) + atomic_load_explicit(&(e->f), memory_order_relaxed));
+					atomic_fetch_sub_explicit(&(e->f), d, memory_order_relaxed);
+				}
+
+				// u->acc_ex -= d;
+				// v->acc_ex += d;
+				atomic_fetch_sub_explicit(&(u->acc_ex), d, memory_order_relaxed);
+				atomic_fetch_add_explicit(&(v->acc_ex), d, memory_order_relaxed);
+				// lägg till push command
+				// u.e och e.f är nu A
+>>>>>>> d64ca060be6357dbeae9fe223052dd24873a4685
 
         current->v = v;
         current->flow = d;
@@ -466,10 +518,19 @@ static void *phase1(void *arg) {
   return 0;
 }
 
+<<<<<<< HEAD
 static void relabel(graph_t *g, node_t *u) {
   u->h += 1;
   pr("relabel %d now h = %d\n", id(g, u), u->h);
   enter_excess(g, u);
+=======
+static void relabel(graph_t *g, node_t *u)
+{
+	// u->h += 1;
+	atomic_fetch_add_explicit(&(u->h), 1, memory_order_relaxed);
+	pr("relabel %d now h = %d\n", id(g, u), u->h);
+	enter_excess(g, u);
+>>>>>>> d64ca060be6357dbeae9fe223052dd24873a4685
 }
 
 static void push(graph_t *g, node_t *u, node_t *v, edge_t *e, int d) {
@@ -515,6 +576,7 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads) {
 
       if (current->push) {
 
+<<<<<<< HEAD
         if (current->u->acc_ex != 0) {
           int added = atomic_exchange(&current->u->acc_ex, 0);
           current->u->e += added;
@@ -538,6 +600,49 @@ static node_t *other(node_t *u, edge_t *e) {
     return e->v;
   else
     return e->u;
+=======
+				// if (current->u->acc_ex != 0)
+				// {
+				// 	int added = atomic_exchange(&current->u->acc_ex, 0);
+				// 	current->u->e += added;
+				// 	enter_excess(g, current->u);
+				// }
+				// if (current->v->acc_ex != 0)
+				// {
+				// 	int added = atomic_exchange(&current->v->acc_ex, 0);
+				// 	current->v->e += added;
+				// 	enter_excess(g, current->v);
+				// }
+
+				if (current->u->acc_ex != 0)
+				{
+					current->u->e += current->u->acc_ex;
+					atomic_store_explicit(&(current->u->acc_ex), 0, memory_order_relaxed);
+					enter_excess(g, current->u);
+				}
+				if (current->v->acc_ex != 0)
+				{
+					current->v->e += current->v->acc_ex;
+					atomic_store_explicit(&(current->v->acc_ex), 0, memory_order_relaxed);
+					enter_excess(g, current->v);
+				}
+			}
+			else
+			{
+				relabel(g, current->u);
+			}
+		}
+	}
+	return 0;
+}
+
+static node_t *other(node_t *u, edge_t *e)
+{
+	if (u == atomic_load_explicit(&(e->u), memory_order_relaxed))
+		return atomic_load_explicit(&(e->v), memory_order_relaxed);
+	else
+		return atomic_load_explicit(&(e->u), memory_order_relaxed);
+>>>>>>> d64ca060be6357dbeae9fe223052dd24873a4685
 }
 
 static void give_nodes(graph_t *g, myargs *arg, int n_threads) {
