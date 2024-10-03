@@ -20,16 +20,6 @@ struct Edge {
         c:      i32,
 }
 
-struct Graph {
-	n: i32, // number of nodes
-	m: i32, 
-	v: Vec<Arc<Mutex<Node>>>,
-	e: Vec<Arc<Mutex<Edge>>>,
-	s: usize,
-	t: usize,
-	excess: VecDeque<usize>
-}
-
 impl Node {
 	fn new(ii:usize) -> Node {
 		Node { i: ii, e: 0, h: 0 }
@@ -54,11 +44,13 @@ fn other(u: &Node, e: &Edge) -> usize {
 
 fn enter_excess(excess: &mut VecDeque<usize>, node: &usize, t: &usize) {
 	if *node != 0 && *node != *t {
-		excess.push_back((*node));
+		excess.push_back(*node);
 	}
+	println!("enter_excess")
 }
 
 fn relabel(excess: &mut VecDeque<usize>, u: &mut Node, t: &usize) -> () {
+	println!("relabel");
 	u.h += 1;
 	enter_excess(excess, &u.i, &t);
 }
@@ -157,15 +149,14 @@ fn main() {
 	
 
 	while !excess.is_empty() {
-		let mut c = 0;
 		let u = excess.pop_front().unwrap();
-		let u2 = node[u].lock().unwrap();
 		let iter = adj[u].iter();
 		let mut v: usize;
 		let mut b: i32;
 		let mut shouldPush = false;
 
 		for e in iter {
+			println!("oändlig for");
 			let mut a = edge[*e].lock().unwrap();
 			if u == a.u {
 				v = a.v;
@@ -175,17 +166,19 @@ fn main() {
 				v = a.u;
 				b = -1;
 			}
-			let v2 = node[v].lock().unwrap();
-			if u2.h > v2.h && b * a.f < a.c {
+			if node[u].lock().unwrap().h > node[v].lock().unwrap().h && b * a.f < a.c {
 				shouldPush = true;
 				let mut u3 = node[u].lock().unwrap();
 				let mut v1 = node[v].lock().unwrap();
 				push(&mut *u3, &mut  *v1, &mut *a, &mut excess, &t);
+				println!("break");
 				break;
 			}
 		}
 
+		println!("shouldPush = {}", shouldPush);
 		if !shouldPush {
+			println!("vi ska relablea");
 			relabel(&mut excess, &mut node[u].lock().unwrap(), &t);
 		}
 
