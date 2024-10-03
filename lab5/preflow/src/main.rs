@@ -1,5 +1,6 @@
 #[macro_use] extern crate text_io;
 
+use std::i32::MIN;
 use std::sync::{Mutex,Arc};
 use std::collections::LinkedList;
 use std::cmp;
@@ -19,6 +20,16 @@ struct Edge {
         c:      i32,
 }
 
+struct Graph {
+	n: i32, // number of nodes
+	m: i32, 
+	v: Vec<Arc<Mutex<Node>>>,
+	e: Vec<Arc<Mutex<Edge>>>,
+	s: usize,
+	t: usize,
+	excess: VecDeque<usize>
+}
+
 impl Node {
 	fn new(ii:usize) -> Node {
 		Node { i: ii, e: 0, h: 0 }
@@ -32,6 +43,56 @@ impl Edge {
         }
 }
 
+fn other(u: &Node, e: &Edge) -> usize {
+	if u.i == e.u {
+		e.v
+	}
+	else {
+		e.u
+	}
+}
+
+fn enter_excess(excess: &mut VecDeque<usize>, node: &usize, t: &usize) {
+	if *node != 0 && *node != *t {
+		excess.push_back((*node));
+	}
+}
+
+fn relabel(excess: &mut VecDeque<usize>, u: &mut Node, t: &usize) -> () {
+	u.h += 1;
+	enter_excess(excess, &u.i, &t);
+}
+
+fn push(u: &mut Node, v: &mut Node, e: &mut Edge, excess: &mut VecDeque<usize>, t: &usize) -> () {
+	let d: i32;
+
+	if u.i == e.u {
+		println!("u.e = {}", u.e);
+		println!("e.c - e.f = {}", e.c - e.f);
+		d = cmp::min(u.e, e.c - e.f);
+		e.f += d;
+		println!("e.f = {}", e.f);
+	}
+	else {
+		println!("u.e = {}", u.e);
+		println!("e.c + e.f = {}", e.c + e.f);
+		d = cmp::min(u.e, e.c + e.f);
+		e.f -= d;
+		println!("e.f = {}", e.f);
+	}
+	println!("d = {}", d);
+
+	u.e -= d;
+	v.e += d;
+
+	if u.e > 0 {
+		enter_excess(excess, &u.i, &t);
+	}
+	if v.e == d {
+		enter_excess(excess, &v.i, &t);
+	}
+
+} 
 
 fn main() {
 
@@ -43,7 +104,7 @@ fn main() {
 	let mut edge = vec![];
 	let mut adj: Vec<LinkedList<usize>> =Vec::with_capacity(n);
 	let mut excess: VecDeque<usize> = VecDeque::new();
-	let debug = false;
+	let debug = true;
 
 	let s = 0;
 	let t = n-1;
@@ -82,13 +143,54 @@ fn main() {
 	println!("initial pushes");
 	let iter = adj[s].iter();
 
-	// but nothing is done here yet...
+	
+	for e in iter {
+		let mut sink = node[s].lock().unwrap();
+		sink.h = n as i32;
+		let mut current_edge = edge[*e].lock().unwrap();
+		let mut neighbor = node[other(&*sink, &*current_edge)].lock().unwrap(); 
+
+		sink.e += current_edge.c;
+		push(&mut *sink, &mut *neighbor, &mut *current_edge, &mut excess, &t);
+	}
+	println!("sink flow = {}", node[s].lock().unwrap().e);
+	
 
 	while !excess.is_empty() {
 		let mut c = 0;
 		let u = excess.pop_front().unwrap();
+		let u2 = node[u].lock().unwrap();
+		let iter = adj[u].iter();
+		let mut v: usize;
+		let mut b: i32;
+		let mut shouldPush = false;
+
+		for e in iter {
+			let mut a = edge[*e].lock().unwrap();
+			if u == a.u {
+				v = a.v;
+				b = 1;
+			}
+			else {
+				v = a.u;
+				b = -1;
+			}
+			let v2 = node[v].lock().unwrap();
+			if u2.h > v2.h && b * a.f < a.c {
+				shouldPush = true;
+				let mut u3 = node[u].lock().unwrap();
+				let mut v1 = node[v].lock().unwrap();
+				push(&mut *u3, &mut  *v1, &mut *a, &mut excess, &t);
+				break;
+			}
+		}
+
+		if !shouldPush {
+			relabel(&mut excess, &mut node[u].lock().unwrap(), &t);
+		}
+
 	}
 
-	println!("f = {}", 0);
+	println!("f = {}", node[t].lock().unwrap().e);
 
 }
