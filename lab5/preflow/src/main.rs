@@ -69,13 +69,9 @@ fn push(u: &mut Node, v: &mut Node, e: &mut Edge, excess: &mut VecDeque<usize>, 
         e.f -= d;
     }
 
-    println!("d = {}", d);
-    println!("u.e = {}, v.e = {}", u.e, v.e);
 
     u.e -= d;
     v.e += d;
-
-    println!("u.e = {}, v.e = {}", u.e, v.e);
 
 
     if u.e > 0 {
@@ -95,7 +91,7 @@ fn main() {
     let mut edge = vec![];
     let mut adj: Vec<LinkedList<usize>> = Vec::with_capacity(n);
     let mut excess: VecDeque<usize> = VecDeque::new();
-    let debug = true;
+    let debug = false;
 
     let s = 0;
     let t = n - 1;
@@ -140,9 +136,7 @@ fn main() {
         let mut neighbor = node[other(&*source, &*current_edge)].lock().unwrap();
 
         source.e += current_edge.c;
-        println!("source.e = {}", source.e);
         push(&mut *source,&mut *neighbor,&mut *current_edge, &mut excess, &t);
-        println!("source.e = {}", source.e);
     }
 
 
@@ -164,8 +158,6 @@ fn main() {
         let t = thread::spawn(move || {
 
             let mut u: usize;
-            let mut should_push: bool;
-
             let node_thread = node_main.read().unwrap();
 			let edge_thread = edge_main.read().unwrap();
 			let adj_thread = adj_main.read().unwrap();
@@ -181,8 +173,10 @@ fn main() {
 
                     u = excess.pop_front().unwrap();
                     u_node_guard = node_thread[u].lock().unwrap();
+
                 }
-                should_push = false;
+                println!("skit");
+                let mut should_push = false;
                 let iter = adj_thread[u].iter();
                 for e in iter {
                     let mut edge_guard = edge_thread[*e].lock().unwrap();
@@ -191,12 +185,11 @@ fn main() {
                     } else {
                         (edge_guard.u, -1)
                     };
-                    let mut u_node_guard = node_thread[u].lock().unwrap();
+                    u_node_guard = node_thread[u].lock().unwrap();
                     let mut v_node_guard = node_thread[v].lock().unwrap();
-
                     if u_node_guard.h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
-                        should_push = true;
                         push(&mut *u_node_guard, &mut *v_node_guard,&mut *edge_guard, &mut excess_main.lock().unwrap(), &t);
+                        should_push = true;
                         break;
                     }
                 }
