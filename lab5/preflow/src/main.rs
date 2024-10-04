@@ -4,9 +4,10 @@ extern crate text_io;
 // use std::i32::MIN;
 use std::cmp;
 use std::collections::LinkedList;
-use std::sync::{Arc, Mutex};
-// use std::thread;
+use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
 use std::collections::VecDeque;
+use std::thread::JoinHandle;
 
 struct Node {
     i: usize, /* index of itself for debugging.	*/
@@ -68,8 +69,14 @@ fn push(u: &mut Node, v: &mut Node, e: &mut Edge, excess: &mut VecDeque<usize>, 
         e.f -= d;
     }
 
+    println!("d = {}", d);
+    println!("u.e = {}, v.e = {}", u.e, v.e);
+
     u.e -= d;
     v.e += d;
+
+    println!("u.e = {}, v.e = {}", u.e, v.e);
+
 
     if u.e > 0 {
         enter_excess(excess, &u.i, &t);
@@ -88,7 +95,7 @@ fn main() {
     let mut edge = vec![];
     let mut adj: Vec<LinkedList<usize>> = Vec::with_capacity(n);
     let mut excess: VecDeque<usize> = VecDeque::new();
-    let debug = false;
+    let debug = true;
 
     let s = 0;
     let t = n - 1;
@@ -127,41 +134,111 @@ fn main() {
     let iter = adj[s].iter();
 
     for e in iter {
-        let mut sink = node[s].lock().unwrap();
-        sink.h = n as i32;
+        let mut source = node[s].lock().unwrap();
+        source.h = n as i32;
         let mut current_edge = edge[*e].lock().unwrap();
-        let mut neighbor = node[other(&*sink, &*current_edge)].lock().unwrap();
+        let mut neighbor = node[other(&*source, &*current_edge)].lock().unwrap();
 
-        sink.e += current_edge.c;
-        push(&mut *sink,&mut *neighbor,&mut *current_edge, &mut excess, &t);
+        source.e += current_edge.c;
+        println!("source.e = {}", source.e);
+        push(&mut *source,&mut *neighbor,&mut *current_edge, &mut excess, &t);
+        println!("source.e = {}", source.e);
     }
 
-    while !excess.is_empty() {
-        let u = excess.pop_front().unwrap();
-        let mut u_node_guard = node[u].lock().unwrap(); // Acquire lock on node[u] ONCE
-        let u_node = &*u_node_guard; // Dereference to get the Node
 
-        let mut should_push = false;
-        for e in adj[u].iter() {
-            let mut edge_guard = edge[*e].lock().unwrap();
-            let (v, b) = if u == edge_guard.u {
-                (edge_guard.v, 1)
-            } else {
-                (edge_guard.u, -1)
-            };
+    let excess_arc = Arc::new(Mutex::new(excess));
+	let adj_arc = Arc::new(RwLock::new(adj));
+    let node_arc = Arc::new(RwLock::new(node));
+	let edge_arc = Arc::new(RwLock::new(edge));
 
-            let mut v_node_guard = node[v].lock().unwrap();
-            if u_node.h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
-                should_push = true;
-                push(&mut *u_node_guard, &mut *v_node_guard, &mut *edge_guard, &mut excess, &t);
-                break;
+    let mut handles: Vec<JoinHandle<()>> = vec![];
+
+    let n_threads = 1;
+
+    for _ in 0..n_threads {
+        let excess_main = excess_arc.clone();
+        let node_main = Arc::clone(&node_arc);
+		let edge_main = Arc::clone(&edge_arc);
+		let adj_main = Arc::clone(&adj_arc);
+
+        let t = thread::spawn(move || {
+
+            let mut u: usize;
+            let mut should_push: bool;
+
+            let node_thread = node_main.read().unwrap();
+			let edge_thread = edge_main.read().unwrap();
+			let adj_thread = adj_main.read().unwrap();
+
+            loop {
+                let mut u_node_guard;
+                {
+                    let mut excess = excess_main.lock().unwrap();
+
+                    if excess.is_empty() {
+                        break;
+                    }
+
+                    u = excess.pop_front().unwrap();
+                    u_node_guard = node_thread[u].lock().unwrap();
+                }
+                should_push = false;
+                let iter = adj_thread[u].iter();
+                for e in iter {
+                    let mut edge_guard = edge_thread[*e].lock().unwrap();
+                    let (v, b) = if u == edge_guard.u {
+                        (edge_guard.v, 1)
+                    } else {
+                        (edge_guard.u, -1)
+                    };
+                    let mut u_node_guard = node_thread[u].lock().unwrap();
+                    let mut v_node_guard = node_thread[v].lock().unwrap();
+
+                    if u_node_guard.h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
+                        should_push = true;
+                        push(&mut *u_node_guard, &mut *v_node_guard,&mut *edge_guard, &mut excess_main.lock().unwrap(), &t);
+                        break;
+                    }
+                }
+                if !should_push {
+                    relabel(&mut excess_main.lock().unwrap(), &mut *u_node_guard, &t);
+                }
             }
-        }
-
-        if !should_push {
-            relabel(&mut excess, &mut *u_node_guard, &t);
-        }
+        });
+        handles.push(t);
     }
 
-    println!("f = {}", node[t].lock().unwrap().e);
+    for t in handles {
+        t.join().unwrap();
+    }
+
+
+    // while !excess.is_empty() {
+    //     let u = excess.pop_front().unwrap();
+    //     let mut u_node_guard = node[u].lock().unwrap(); // Acquire lock on node[u] ONCE
+    //     let u_node = &*u_node_guard; // Dereference to get the Node
+
+    //     let mut should_push = false;
+    //     for e in adj[u].iter() {
+    //         let mut edge_guard = edge[*e].lock().unwrap();
+    //         let (v, b) = if u == edge_guard.u {
+    //             (edge_guard.v, 1)
+    //         } else {
+    //             (edge_guard.u, -1)
+    //         };
+
+    //         let mut v_node_guard = node[v].lock().unwrap();
+    //         if u_node.h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
+    //             should_push = true;
+    //             push(&mut *u_node_guard, &mut *v_node_guard, &mut *edge_guard, &mut excess, &t);
+    //             break;
+    //         }
+    //     }
+
+    //     if !should_push {
+    //         relabel(&mut excess, &mut *u_node_guard, &t);
+    //     }
+    // }
+
+    println!("f = {}", node_arc.read().unwrap()[t].lock().unwrap().e);
 }
