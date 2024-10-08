@@ -164,6 +164,7 @@ fn main() {
             let node_thread = node_main.read().unwrap();
             let edge_thread = edge_main.read().unwrap();
             let adj_thread = adj_main.read().unwrap();
+            let mut num_nodes = 0;
 
 
 
@@ -177,6 +178,8 @@ fn main() {
                     }
                     excess.pop_front().unwrap()
                 };
+                num_nodes += 1;
+                
 
 
                 let iter = adj_thread[u].iter();
@@ -223,7 +226,9 @@ fn main() {
                 }
 
             }
+            println!("Thread done, nodes: {}", num_nodes);
         });
+
         handles.push(t);
     }
 
