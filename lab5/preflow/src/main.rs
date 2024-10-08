@@ -147,10 +147,9 @@ fn main() {
     let adj_arc = Arc::new(RwLock::new(adj));
     let node_arc = Arc::new(RwLock::new(node));
     let edge_arc = Arc::new(RwLock::new(edge));
-
     let mut handles: Vec<JoinHandle<()>> = vec![];
 
-    let n_threads = 8;
+    let n_threads = 11;
 
 
     for _ in 0..n_threads {
@@ -193,7 +192,6 @@ fn main() {
                         (edge_guard.u, -1)
                     };
 
-                    // println!("Innan uv");
                     if u < v {
                         u_node_guard = node_thread[u].lock().unwrap();
                         v_node_guard = node_thread[v].lock().unwrap();
@@ -201,7 +199,6 @@ fn main() {
                         v_node_guard = node_thread[v].lock().unwrap();
                         u_node_guard = node_thread[u].lock().unwrap();
                     }
-                    // println!("efter uv");
 
                     if u_node_guard.h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
                         push(
@@ -213,12 +210,8 @@ fn main() {
                         );
                         break;
                     }
-
-                    // println!("total elements: {}", total_elements);
-                    // println!("i: {}", i);
-                    if total_elements == i + 1{
+                    if total_elements == i + 1 {
                         relabel(&mut excess_main.lock().unwrap(), &mut u_node_guard, &t);
-                        // println!("Efter relabel");
                     }
                 }
 
