@@ -4,9 +4,9 @@ extern crate text_io;
 // use std::i32::MIN;
 use std::cmp;
 use std::collections::LinkedList;
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::collections::VecDeque;
 use std::thread::JoinHandle;
 
 struct Node {
@@ -69,10 +69,8 @@ fn push(u: &mut Node, v: &mut Node, e: &mut Edge, excess: &mut VecDeque<usize>, 
         e.f -= d;
     }
 
-
     u.e -= d;
     v.e += d;
-
 
     if u.e > 0 {
         enter_excess(excess, &u.i, &t);
@@ -136,48 +134,58 @@ fn main() {
         let mut neighbor = node[other(&*source, &*current_edge)].lock().unwrap();
 
         source.e += current_edge.c;
-        push(&mut *source,&mut *neighbor,&mut *current_edge, &mut excess, &t);
+        push(
+            &mut *source,
+            &mut *neighbor,
+            &mut *current_edge,
+            &mut excess,
+            &t,
+        );
     }
 
-
     let excess_arc = Arc::new(Mutex::new(excess));
-	let adj_arc = Arc::new(RwLock::new(adj));
+    let adj_arc = Arc::new(RwLock::new(adj));
     let node_arc = Arc::new(RwLock::new(node));
-	let edge_arc = Arc::new(RwLock::new(edge));
+    let edge_arc = Arc::new(RwLock::new(edge));
 
     let mut handles: Vec<JoinHandle<()>> = vec![];
 
-    let n_threads = 2;
+    let n_threads = 8;
+
 
     for _ in 0..n_threads {
         let excess_main = excess_arc.clone();
         let node_main = Arc::clone(&node_arc);
-		let edge_main = Arc::clone(&edge_arc);
-		let adj_main = Arc::clone(&adj_arc);
+        let edge_main = Arc::clone(&edge_arc);
+        let adj_main = Arc::clone(&adj_arc);
 
         let t = thread::spawn(move || {
-
             let mut u: usize;
             let node_thread = node_main.read().unwrap();
-			let edge_thread = edge_main.read().unwrap();
-			let adj_thread = adj_main.read().unwrap();
+            let edge_thread = edge_main.read().unwrap();
+            let adj_thread = adj_main.read().unwrap();
+
+
 
             loop {
-                let mut excess = excess_main.lock().unwrap();
-                {
-                
+                // let mut excess = excess_main.lock().unwrap();
+                u = {
+                    let mut excess = excess_main.lock().unwrap();
+
                     if excess.is_empty() {
                         break;
                     }
+                    excess.pop_front().unwrap()
+                };
 
-                    u = excess.pop_front().unwrap();
-                
-                }
 
-                // let mut u_node_guard = node_thread[u].lock().unwrap();
-                let mut should_push = false;
                 let iter = adj_thread[u].iter();
-                for e in iter {
+                let total_elements = iter.len();
+
+                for (i, e) in iter.enumerate() {
+                    let mut u_node_guard;
+                    let mut v_node_guard;
+    
                     let mut edge_guard = edge_thread[*e].lock().unwrap();
                     let (v, b) = if u == edge_guard.u {
                         (edge_guard.v, 1)
@@ -185,16 +193,35 @@ fn main() {
                         (edge_guard.u, -1)
                     };
 
-                    let mut v_node_guard = node_thread[v].lock().unwrap();
-                    if node_thread[u].lock().unwrap().h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
-                        push(&mut node_thread[u].lock().unwrap(), &mut *v_node_guard,&mut *edge_guard, &mut excess, &t);
-                        should_push = true;
+                    // println!("Innan uv");
+                    if u < v {
+                        u_node_guard = node_thread[u].lock().unwrap();
+                        v_node_guard = node_thread[v].lock().unwrap();
+                    } else {
+                        v_node_guard = node_thread[v].lock().unwrap();
+                        u_node_guard = node_thread[u].lock().unwrap();
+                    }
+                    // println!("efter uv");
+
+                    if u_node_guard.h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
+                        push(
+                            &mut u_node_guard,
+                            &mut *v_node_guard,
+                            &mut *edge_guard,
+                            &mut excess_main.lock().unwrap(),
+                            &t,
+                        );
                         break;
                     }
+
+                    // println!("total elements: {}", total_elements);
+                    // println!("i: {}", i);
+                    if total_elements == i + 1{
+                        relabel(&mut excess_main.lock().unwrap(), &mut u_node_guard, &t);
+                        // println!("Efter relabel");
+                    }
                 }
-                if !should_push {
-                    relabel(&mut excess, &mut node_thread[u].lock().unwrap(), &t);
-                }
+
             }
         });
         handles.push(t);
@@ -203,7 +230,6 @@ fn main() {
     for t in handles {
         t.join().unwrap();
     }
-
 
     // while !excess.is_empty() {
     //     let u = excess.pop_front().unwrap();
