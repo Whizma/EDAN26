@@ -147,7 +147,7 @@ fn main() {
 
     let mut handles: Vec<JoinHandle<()>> = vec![];
 
-    let n_threads = 1;
+    let n_threads = 2;
 
     for _ in 0..n_threads {
         let excess_main = excess_arc.clone();
@@ -163,20 +163,18 @@ fn main() {
 			let adj_thread = adj_main.read().unwrap();
 
             loop {
-                
+                let mut excess = excess_main.lock().unwrap();
                 {
                 
-                    let mut excess = excess_main.lock().unwrap();
-
                     if excess.is_empty() {
                         break;
                     }
 
                     u = excess.pop_front().unwrap();
                 
-                
                 }
-                let mut u_node_guard = node_thread[u].lock().unwrap();
+
+                // let mut u_node_guard = node_thread[u].lock().unwrap();
                 let mut should_push = false;
                 let iter = adj_thread[u].iter();
                 for e in iter {
@@ -186,16 +184,16 @@ fn main() {
                     } else {
                         (edge_guard.u, -1)
                     };
-                    // u_node_guard = node_thread[u].lock().unwrap();
+
                     let mut v_node_guard = node_thread[v].lock().unwrap();
-                    if u_node_guard.h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
-                        push(&mut *u_node_guard, &mut *v_node_guard,&mut *edge_guard, &mut excess_main.lock().unwrap(), &t);
+                    if node_thread[u].lock().unwrap().h > v_node_guard.h && b * edge_guard.f < edge_guard.c {
+                        push(&mut node_thread[u].lock().unwrap(), &mut *v_node_guard,&mut *edge_guard, &mut excess, &t);
                         should_push = true;
                         break;
                     }
                 }
                 if !should_push {
-                    relabel(&mut excess_main.lock().unwrap(), &mut *u_node_guard, &t);
+                    relabel(&mut excess, &mut node_thread[u].lock().unwrap(), &t);
                 }
             }
         });
