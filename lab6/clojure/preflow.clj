@@ -115,13 +115,12 @@
 
 (defn remove-any [excess-nodes]
   (dosync
-   (let [u (ref -1)]
-     (do
-       (if (not (empty? @excess-nodes))
-         (do
-           (ref-set u (first @excess-nodes))
-           (ref-set excess-nodes (rest @excess-nodes))))
-       @u))))
+   (if (empty? @excess-nodes)
+     -1
+     (let [u (first @excess-nodes)]
+       (ref-set excess-nodes (rest @excess-nodes))
+       u))))
+
 
 (defn relabel [nodes u s t excess-nodes]
   (ref-set (nodes u) (update @(nodes u) :h + 1))
@@ -185,7 +184,7 @@
 (defn preflow []
 
   (dosync (initial-pushes nodes edges s t excess-nodes))
-	;(dosync (work nodes edges s t excess-nodes))
+
 
   (let [threads (repeatedly num-threads #(Thread. make-transactions))]
     (run! #(.start %) threads)
