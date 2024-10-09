@@ -2,7 +2,7 @@
 #include <string.h>
 
 #define N (2048)
-#define BLOCK_SIZE (16)
+#define BLOCK_SIZE (32)
 
 float sum;
 float a[N][N];
