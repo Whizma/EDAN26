@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <omp.h>
 
 #define N (2048)
 
@@ -11,7 +12,8 @@ float c[N][N];
 void matmul()
 {
 	int	i, j, k;
-
+	#pragma omp parallel
+	#pragma omp for
 	for (i = 0; i < N; i += 1) {
 		for (j = 0; j < N; j += 1) {
 			a[i][j] = 0;
