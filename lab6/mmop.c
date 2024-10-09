@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <string.h>
 
+
 #define N (2048)
 #define BLOCK_SIZE (16)
 
 float sum;
-float a[N][N];
-float b[N][N];
-float c[N][N];
+float a[N][N] __attribute__((aligned(32))); // Ensure data is aligned for SIMD
+float b[N][N] __attribute__((aligned(32)));
+float c[N][N] __attribute__((aligned(32)));
+
 
 void matmul()
 {
