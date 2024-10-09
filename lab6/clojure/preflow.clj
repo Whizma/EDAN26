@@ -115,12 +115,13 @@
 
 (defn remove-any [excess-nodes]
   (dosync
-   (if (empty? @excess-nodes)
-     -1
-     (let [u (first @excess-nodes)]
-       (ref-set excess-nodes (rest @excess-nodes))
-       u))))
-
+   (let [u (ref -1)]
+     (do
+       (if (not (empty? @excess-nodes))
+         (do
+           (ref-set u (first @excess-nodes))
+           (ref-set excess-nodes (rest @excess-nodes))))
+       @u))))
 
 (defn relabel [nodes u s t excess-nodes]
   (ref-set (nodes u) (update @(nodes u) :h + 1))
