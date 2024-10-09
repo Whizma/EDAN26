@@ -449,7 +449,6 @@ static void *phase1(void *arg)
           b = -1;
         }
 
-        __transaction_atomic
         {
           if (u->h > v->h && b * e->f < e->c)
           {
@@ -466,20 +465,23 @@ static void *phase1(void *arg)
 
       if (v != NULL)
       {
-        __transaction_atomic
         {
 
           if (u == e->u)
           {
 
             d = MIN(u->e, e->c - e->f);
-            e->f = d;
+            __transaction_atomic { 
+	        e->f += d;
+	    }
           }
           else
           {
             d = MIN(u->e, e->c + e->f);
-            e->f = d;
-          }
+            __transaction_atomic {
+	        e->f -= d;
+	    }
+	  }
         }
 
         __transaction_atomic
@@ -513,7 +515,6 @@ static void *phase1(void *arg)
 
 static void relabel(graph_t *g, node_t *u)
 {
-  __transaction_atomic
   {
 
     u->h += 1;
@@ -585,7 +586,6 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
         // 	enter_excess(g, current->v);
         // }
 
-        __transaction_atomic
         {
 
           if (current->u->acc_ex != 0)
@@ -613,7 +613,7 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 
 static node_t *other(node_t *u, edge_t *e)
 {
-  // __transaction_atomic KANSKE BEHÖVS!
+  // __transaction_atomic
   {
 
     if (u == e->u)
