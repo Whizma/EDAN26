@@ -1,4 +1,4 @@
-require '[clojure.string :as str])		; for splitting an input line into words
+require '([clojure.string :as str])		; for splitting an input line into words
 
 (def debug false)
 
