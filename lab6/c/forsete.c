@@ -1,21 +1,20 @@
 /* This is essentially the same as preflow.c in this directory, lab0.
  *
- * if you compile it with: 
- *	gcc -DMAIN forsete.c 
+ * if you compile it with:
+ *	gcc -DMAIN forsete.c
  * then it is the same as preflow.c
  * and without -DMAIN, it can be used to submit at forsete.cs.lth.se
  *
- * The -DMAIN defines a macro which is then tested in this file with 
+ * The -DMAIN defines a macro which is then tested in this file with
  *
  * #ifdef MAIN
- *      do things as in preflow.c (read a text file in new_graph) 
+ *      do things as in preflow.c (read a text file in new_graph)
  *      and with a main function.
  * #else
  *      use a new_graph function with parameter from forsete's main.
  * #endif
  */
 
-#include "pthread_barrier.h"
 #include <assert.h>
 #include <ctype.h>
 #include <pthread.h>
@@ -25,9 +24,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PRINT		0	/* enable/disable prints.	*/
-#define TIME		0	/* for timing on power.		*/
+#define PRINT 0 /* enable/disable prints.	*/
+#define TIME 0	/* for timing on power.		*/
 #define SIZE 200ULL
+
 
 /* the funny do-while next clearly performs one iteration of the loop.
  * if you are really curious about why there is a loop, please check
@@ -38,64 +38,73 @@
  */
 
 #if PRINT
-#define pr(...)		do { fprintf(stderr, __VA_ARGS__); } while (0)
+#define pr(...)                       \
+	do                                \
+	{                                 \
+		fprintf(stderr, __VA_ARGS__); \
+	} while (0)
 #else
-#define pr(...)		/* no effect at all */
+#define pr(...) /* no effect at all */
 #endif
 
-#define MIN(a,b)	(((a)<=(b))?(a):(b))
+#define MIN(a, b) (((a) <= (b)) ? (a) : (b))
 
 /* introduce names for some structs. a struct is like a class, except
  * it cannot be extended and has no member methods, and everything is
  * public.
  *
- * using typedef like this means we can avoid writing 'struct' in 
+ * using typedef like this means we can avoid writing 'struct' in
  * every declaration. no new type is introduded and only a shorter name.
  *
  */
 
-typedef struct graph_t	graph_t;
-typedef struct node_t	node_t;
-typedef struct edge_t	edge_t;
-typedef struct list_t	list_t;
+typedef struct graph_t graph_t;
+typedef struct node_t node_t;
+typedef struct edge_t edge_t;
+typedef struct list_t list_t;
 
-typedef struct xedge_t	xedge_t;
+typedef struct xedge_t xedge_t;
 
-struct xedge_t {
-	int		u;	/* one of the two nodes.	*/
-	int		v;	/* the other. 			*/
-	int		c;	/* capacity.			*/
+struct xedge_t
+{
+	int u; /* one of the two nodes.	*/
+	int v; /* the other. 			*/
+	int c; /* capacity.			*/
 };
 
-struct list_t {
-	edge_t*		edge;
-	list_t*		next;
+struct list_t
+{
+	edge_t *edge;
+	list_t *next;
 };
 
-struct node_t {
-	int		h;	/* height.			*/
-	int		e;	/* excess flow.			*/
-	list_t*		edge;	/* adjacency list.		*/
-	node_t*		next;	/* with excess preflow.		*/
+struct node_t
+{
+	int h;		  /* height.			*/
+	int e;		  /* excess flow.			*/
+	list_t *edge; /* adjacency list.		*/
+	node_t *next; /* with excess preflow.		*/
 	int acc_ex;
-  int active;
+	int active;
 };
 
-struct edge_t {
-	node_t*		u;	/* one of the two nodes.	*/
-	node_t*		v;	/* the other. 			*/
-	int		f;	/* flow > 0 if from u to v.	*/
-	int		c;	/* capacity.			*/
+struct edge_t
+{
+	node_t *u; /* one of the two nodes.	*/
+	node_t *v; /* the other. 			*/
+	int f;	   /* flow > 0 if from u to v.	*/
+	int c;	   /* capacity.			*/
 };
 
-struct graph_t {
-	int		n;	/* nodes.			*/
-	int		m;	/* edges.			*/
-	node_t*		v;	/* array of n nodes.		*/
-	edge_t*		e;	/* array of m edges.		*/
-	node_t*		s;	/* source.			*/
-	node_t*		t;	/* sink.			*/
-	node_t*		excess;	/* nodes with e > 0 except s,t.	*/
+struct graph_t
+{
+	int n;			/* nodes.			*/
+	int m;			/* edges.			*/
+	node_t *v;		/* array of n nodes.		*/
+	edge_t *e;		/* array of m edges.		*/
+	node_t *s;		/* source.			*/
+	node_t *t;		/* sink.			*/
+	node_t *excess; /* nodes with e > 0 except s,t.	*/
 	int shouldTerminate;
 };
 
@@ -104,28 +113,28 @@ typedef struct command command;
 
 struct command
 {
-  int push;
-  node_t *u;
-  node_t *v;
-  edge_t *edge;
-  int flow;
+	int push;
+	node_t *u;
+	node_t *v;
+	edge_t *edge;
+	int flow;
 };
 
 struct myargs
 {
-  graph_t *g;
-  pthread_barrier_t *barrier;
-  int nbrNodes;
-  int count;
-  node_t *nodes[SIZE]; // Pointer to an array of node_t structures
-  command commands[SIZE];
+	graph_t *g;
+	pthread_barrier_t *barrier;
+	int nbrNodes;
+	int count;
+	node_t *nodes[SIZE]; // Pointer to an array of node_t structures
+	command commands[SIZE];
 };
 
 /* a remark about C arrays. the phrase above 'array of n nodes' is using
  * the word 'array' in a general sense for any language. in C an array
  * (i.e., the technical term array in ISO C) is declared as: int x[10],
  * i.e., with [size] but for convenience most people refer to the data
- * in memory as an array here despite the graph_t's v and e members 
+ * in memory as an array here despite the graph_t's v and e members
  * are not strictly arrays. they are pointers. once we have allocated
  * memory for the data in the ''array'' for the pointer, the syntax of
  * using an array or pointer is the same so we can refer to a node with
@@ -133,28 +142,28 @@ struct myargs
  * 			g->v[i]
  *
  * where the -> is identical to Java's . in this expression.
- * 
+ *
  * in summary: just use the v and e as arrays.
- * 
+ *
  * a difference between C and Java is that in Java you can really not
  * have an array of nodes as we do. instead you need to have an array
  * of node references. in C we can have both arrays and local variables
  * with structs that are not allocated as with Java's new but instead
  * as any basic type such as int.
- * 
+ *
  */
 
 #ifdef MAIN
-static graph_t* new_graph(FILE* in, int n, int m);
+static graph_t *new_graph(FILE *in, int n, int m);
 #else
-static graph_t* new_graph(int n, int m, int s, int t, xedge_t* e);
+static graph_t *new_graph(int n, int m, int s, int t, xedge_t *e);
 #endif
 
-static char* progname;
+static char *progname;
 
 #if PRINT
 
-static int id(graph_t* g, node_t* v)
+static int id(graph_t *g, node_t *v)
 {
 	/* return the node index for v.
 	 *
@@ -180,9 +189,9 @@ static int id(graph_t* g, node_t* v)
 }
 #endif
 
-void error(const char* fmt, ...)
+void error(const char *fmt, ...)
 {
-	/* print error message and exit. 
+	/* print error message and exit.
 	 *
 	 * it can be used as printf with formatting commands such as:
 	 *
@@ -198,19 +207,19 @@ void error(const char* fmt, ...)
 	 * passed in integer registers, floating point registers, and
 	 * which are instead written to the stack.
 	 *
-	 * avoid ... in performance critical code since it makes 
+	 * avoid ... in performance critical code since it makes
 	 * life for optimizing compilers much more difficult. but in
 	 * in error functions, they obviously are fine (unless we are
-	 * sufficiently paranoid and don't want to risk an error 
-	 * condition escalate and crash a car or nuclear reactor 		 
+	 * sufficiently paranoid and don't want to risk an error
+	 * condition escalate and crash a car or nuclear reactor
 	 * instead of doing an even safer shutdown (corrupted memory
 	 * can cause even more damage if we trust the stack is in good
 	 * shape)).
 	 *
 	 */
 
-	va_list		ap;
-	char		buf[BUFSIZ];
+	va_list ap;
+	char buf[BUFSIZ];
 
 	va_start(ap, fmt);
 	vsprintf(buf, fmt, ap);
@@ -224,8 +233,8 @@ void error(const char* fmt, ...)
 
 static int next_int()
 {
-        int     x;
-        int     c;
+	int x;
+	int c;
 
 	/* this is like Java's nextInt to get the next integer.
 	 *
@@ -242,21 +251,21 @@ static int next_int()
 	 */
 
 	x = 0;
-        while (isdigit(c = getchar()))
-                x = 10 * x + c - '0';
+	while (isdigit(c = getchar()))
+		x = 10 * x + c - '0';
 
-        return x;
+	return x;
 }
 
-static void* xmalloc(size_t s)
+static void *xmalloc(size_t s)
 {
-	void*		p;
+	void *p;
 
 	/* allocate s bytes from the heap and check that there was
 	 * memory for our request.
 	 *
 	 * memory from malloc contains garbage except at the beginning
-	 * of the program execution when it contains zeroes for 
+	 * of the program execution when it contains zeroes for
 	 * security reasons so that no program should read data written
 	 * by a different program and user.
 	 *
@@ -273,9 +282,9 @@ static void* xmalloc(size_t s)
 	return p;
 }
 
-static void* xcalloc(size_t n, size_t s)
+static void *xcalloc(size_t n, size_t s)
 {
-	void*		p;
+	void *p;
 
 	p = xmalloc(n * s);
 
@@ -284,12 +293,12 @@ static void* xcalloc(size_t n, size_t s)
 
 	/* for the curious: so memset is equivalent to a simple
 	 * loop but a call to memset needs less memory, and also
- 	 * most computers have special instructions to zero cache 
+	 * most computers have special instructions to zero cache
 	 * blocks which usually are used by memset since it normally
-	 * is written in assembler code. note that good compilers 
+	 * is written in assembler code. note that good compilers
 	 * decide themselves whether to use memset or a for-loop
 	 * so it often does not matter. for small amounts of memory
-	 * such as a few bytes, good compilers will just use a 
+	 * such as a few bytes, good compilers will just use a
 	 * sequence of store instructions and no call or loop at all.
 	 *
 	 */
@@ -297,9 +306,9 @@ static void* xcalloc(size_t n, size_t s)
 	return p;
 }
 
-static void add_edge(node_t* u, edge_t* e)
+static void add_edge(node_t *u, edge_t *e)
 {
-	list_t*		p;
+	list_t *p;
 
 	/* allocate memory for a list link and put it first
 	 * in the adjacency list of u.
@@ -312,7 +321,7 @@ static void add_edge(node_t* u, edge_t* e)
 	u->edge = p;
 }
 
-static void connect(node_t* u, node_t* v, int c, edge_t* e)
+static void connect(node_t *u, node_t *v, int c, edge_t *e)
 {
 	/* connect two nodes by putting a shared (same object)
 	 * in their adjacency lists.
@@ -327,7 +336,7 @@ static void connect(node_t* u, node_t* v, int c, edge_t* e)
 	add_edge(v, e);
 }
 
-static void enter_excess(graph_t* g, node_t* v)
+static void enter_excess(graph_t *g, node_t *v)
 {
 	/* put v at the front of the list of nodes
 	 * that have excess preflow > 0.
@@ -338,16 +347,17 @@ static void enter_excess(graph_t* g, node_t* v)
 	 *
 	 */
 
-	if (v->active != 1 && v != g->t && v != g->s) {
+	if (v->active != 1 && v != g->t && v != g->s)
+	{
 		v->next = g->excess;
 		v->active = 1;
 		g->excess = v;
 	}
 }
 
-static node_t* leave_excess(graph_t* g)
+static node_t *leave_excess(graph_t *g)
 {
-	node_t*		v;
+	node_t *v;
 
 	/* take any node from the set of nodes with excess preflow
 	 * and for simplicity we always take the first.
@@ -358,242 +368,245 @@ static node_t* leave_excess(graph_t* g)
 
 	if (v != NULL)
 		g->excess = v->next;
-		v->active = 0;
+	v->active = 0;
 	return v;
 }
 
 static void *phase1(void *arg)
 {
-  node_t *s;
-  node_t *u;
-  node_t *v;
-  edge_t *e;
-  list_t *p;
-  int d;
-  int b;
-  myargs *args = arg;
-  graph_t *g = args->g;
-  command *current;
-  pthread_barrier_wait(args->barrier);
+	node_t *s;
+	node_t *u;
+	node_t *v;
+	edge_t *e;
+	list_t *p;
+	int d;
+	int b;
+	myargs *args = arg;
+	graph_t *g = args->g;
+	command *current;
+	pthread_barrier_wait(args->barrier);
 
-  while (!g->shouldTerminate)
-  {
+	while (!g->shouldTerminate)
+	{
 
-    while (args->count > 0)
-    {
-      u = args->nodes[args->count - 1];
-      args->nodes[args->count] = NULL;
-      v = NULL;
-      p = u->edge;
+		while (args->count > 0)
+		{
+			u = args->nodes[args->count - 1];
+			args->nodes[args->count] = NULL;
+			v = NULL;
+			p = u->edge;
 
-      while (p != NULL)
-      {
-        e = p->edge;
-        p = p->next;
+			while (p != NULL)
+			{
+				e = p->edge;
+				p = p->next;
 
-        if (u == e->u)
-        {
-          v = e->v;
-          b = 1;
-        }
-        else
-        {
-          v = e->u;
-          b = -1;
-        }
+				if (u == e->u)
+				{
+					v = e->v;
+					b = 1;
+				}
+				else
+				{
+					v = e->u;
+					b = -1;
+				}
 
-        {
-          if (u->h > v->h && b * e->f < e->c)
-          {
-            break;
-          }
-          else
-          {
-            v = NULL;
-          }
-        }
-      }
-      current = &(args->commands[args->count - 1]);
-      current->u = u;
+				{
+					if (u->h > v->h && b * e->f < e->c)
+					{
+						break;
+					}
+					else
+					{
+						v = NULL;
+					}
+				}
+			}
+			current = &(args->commands[args->count - 1]);
+			current->u = u;
 
-      if (v != NULL)
-      {
-        {
+			if (v != NULL)
+			{
+				{
 
-          if (u == e->u)
-          {
+					if (u == e->u)
+					{
 
-            d = MIN(u->e, e->c - e->f);
-            __transaction_atomic { 
-	        e->f += d;
-	    }
-          }
-          else
-          {
-            d = MIN(u->e, e->c + e->f);
-            __transaction_atomic {
-	        e->f -= d;
-	    }
-	  }
-        }
+						d = MIN(u->e, e->c - e->f);
+						__transaction_atomic
+						{
+							e->f += d;
+						}
+					}
+					else
+					{
+						d = MIN(u->e, e->c + e->f);
+						__transaction_atomic
+						{
+							e->f -= d;
+						}
+					}
+				}
 
-        __transaction_atomic
-        {
+				__transaction_atomic
+				{
 
-          u->acc_ex -= d;
-          v->acc_ex += d;
-        }
+					u->acc_ex -= d;
+					v->acc_ex += d;
+				}
 
-        current->v = v;
-        current->flow = d;
-        current->edge = e;
-        current->push = 1;
-      }
-      else
-      {
-        // lägg till relabel command
+				current->v = v;
+				current->flow = d;
+				current->edge = e;
+				current->push = 1;
+			}
+			else
+			{
+				// lägg till relabel command
 
-        current->push = 0;
-      }
-      args->count -= 1;
-    }
+				current->push = 0;
+			}
+			args->count -= 1;
+		}
 
-    pthread_barrier_wait(args->barrier);
-    pthread_barrier_wait(args->barrier);
-  }
+		pthread_barrier_wait(args->barrier);
+		pthread_barrier_wait(args->barrier);
+	}
 
-  return 0;
+	return 0;
 }
 
 static void push(graph_t *g, node_t *u, node_t *v, edge_t *e, int d)
 {
-  pr("push from %d to %d: ", id(g, u), id(g, v));
-  pr("f = %d, c = %d, so ", e->f, e->c);
+	pr("push from %d to %d: ", id(g, u), id(g, v));
+	pr("f = %d, c = %d, so ", e->f, e->c);
 
-  pr("pushing %d\n", d);
+	pr("pushing %d\n", d);
 
-  u->e -= d;
-  v->e += d;
+	u->e -= d;
+	v->e += d;
 
-  /* the following are always true. */
+	/* the following are always true. */
 
-  assert(d >= 0);
-  assert(u->e >= 0);
-  assert(abs(e->f) <= e->c);
+	assert(d >= 0);
+	assert(u->e >= 0);
+	assert(abs(e->f) <= e->c);
 
-  if (u->e > 0)
-  {
+	if (u->e > 0)
+	{
 
-    /* still some remaining so let u push more. */
+		/* still some remaining so let u push more. */
 
-    enter_excess(g, u);
-  }
+		enter_excess(g, u);
+	}
 
-  if (v->e == d)
-  {
+	if (v->e == d)
+	{
 
-    /* since v has d excess now it had zero before and
-     * can now push.
-     *
-     */
+		/* since v has d excess now it had zero before and
+		 * can now push.
+		 *
+		 */
 
-    enter_excess(g, v);
-  }
+		enter_excess(g, v);
+	}
 }
 
-static void *phase2(graph_t *g, myargs *arg, int n_threads)
-{
-  command *current;
-
-  current = &(arg[0].commands[0]);
-  for (int i = 0; i < n_threads; i++)
-  {
-    for (int j = 0; j < arg[i].nbrNodes; j++)
-    {
-      current = &(arg[i].commands[j]);
-
-      if (current->push)
-      {
-
-        {
-
-          if (current->u->acc_ex != 0)
-          {
-            current->u->e += current->u->acc_ex;
-            current->u->acc_ex = 0;
-            enter_excess(g, current->u);
-          }
-          if (current->v->acc_ex != 0)
-          {
-            current->v->e += current->v->acc_ex;
-            current->v->acc_ex = 0;
-            enter_excess(g, current->v);
-          }
-        }
-      }
-      else
-      {
-        relabel(g, current->u);
-      }
-    }
-  }
-  return 0;
-}
-
-static void give_nodes(graph_t *g, myargs *arg, int n_threads)
-{
-  node_t *u;
-  int i;
-  int j;
-  for (i = 0; i < n_threads; i++)
-  {
-    arg[i].nbrNodes = 0;
-  }
-  i = 0;
-  while ((u = leave_excess(g)) != NULL)
-  {
-    pr("selected u = %d with ", id(g, u));
-    pr("h = %d and e = %d\n", u->h, u->e);
-    arg[i].nodes[arg[i].count] = u;
-    arg[i].count += 1;
-    arg[i].nbrNodes += 1;
-
-    if (i < n_threads - 1)
-    {
-      i++;
-    }
-    else
-    {
-      i = 0;
-    }
-  }
-}
-
-static void relabel(graph_t* g, node_t* u)
+static void relabel(graph_t *g, node_t *u)
 {
 	u->h += 1;
 	pr("relabel %d now h = %d\n", id(g, u), u->h);
 	enter_excess(g, u);
 }
 
-static node_t* other(node_t* u, edge_t* e)
+static void *phase2(graph_t *g, myargs *arg, int n_threads)
+{
+	command *current;
+
+	current = &(arg[0].commands[0]);
+	for (int i = 0; i < n_threads; i++)
+	{
+		for (int j = 0; j < arg[i].nbrNodes; j++)
+		{
+			current = &(arg[i].commands[j]);
+
+			if (current->push)
+			{
+
+				{
+
+					if (current->u->acc_ex != 0)
+					{
+						current->u->e += current->u->acc_ex;
+						current->u->acc_ex = 0;
+						enter_excess(g, current->u);
+					}
+					if (current->v->acc_ex != 0)
+					{
+						current->v->e += current->v->acc_ex;
+						current->v->acc_ex = 0;
+						enter_excess(g, current->v);
+					}
+				}
+			}
+			else
+			{
+				relabel(g, current->u);
+			}
+		}
+	}
+	return 0;
+}
+
+static void give_nodes(graph_t *g, myargs *arg, int n_threads)
+{
+	node_t *u;
+	int i;
+	int j;
+	for (i = 0; i < n_threads; i++)
+	{
+		arg[i].nbrNodes = 0;
+	}
+	i = 0;
+	while ((u = leave_excess(g)) != NULL)
+	{
+		pr("selected u = %d with ", id(g, u));
+		pr("h = %d and e = %d\n", u->h, u->e);
+		arg[i].nodes[arg[i].count] = u;
+		arg[i].count += 1;
+		arg[i].nbrNodes += 1;
+
+		if (i < n_threads - 1)
+		{
+			i++;
+		}
+		else
+		{
+			i = 0;
+		}
+	}
+}
+
+static node_t *other(node_t *u, edge_t *e)
 {
 	if (u == e->u)
 		return e->v;
 	else
 		return e->u;
 }
-	
-static int xpreflow(graph_t* g, int n_threads, int n)
+
+static int xpreflow(graph_t *g, int n_threads)
 {
-	node_t*		s;
-	node_t*		u;
-	node_t*		v;
-	edge_t*		e;
-	list_t*		p;
- 	command *c;
-  int b;
-  pthread_t threads[n_threads];
+
+	node_t *s;
+	node_t *u;
+	node_t *v;
+	edge_t *e;
+	list_t *p;
+	command *c;
+	int b;
+	pthread_t threads[n_threads];
 
 	s = g->s;
 	s->h = g->n;
@@ -606,135 +619,78 @@ static int xpreflow(graph_t* g, int n_threads, int n)
 	 *
 	 */
 
-while (p != NULL)
-  {
-    e = p->edge;
-    p = p->next;
+	while (p != NULL)
+	{
+		e = p->edge;
+		p = p->next;
 
-    s->e += e->c;
-    push(g, s, other(s, e), e, e->c);
-  }
+		s->e += e->c;
+		push(g, s, other(s, e), e, e->c);
+	}
 
-  pthread_barrier_t barrier;
-  pthread_barrier_init(&barrier, NULL, n_threads + 1);
+	pthread_barrier_t barrier;
+	pthread_barrier_init(&barrier, NULL, n_threads + 1);
 
-  myargs arg[n_threads];
-  for (int i = 0; i < n_threads; i++)
-  {
-    arg[i].g = g;
-    arg[i].barrier = &barrier;
-    arg[i].count = 0;
-    arg[i].nbrNodes = 0;
-  }
+	myargs arg[n_threads];
+	for (int i = 0; i < n_threads; i++)
+	{
+		arg[i].g = g;
+		arg[i].barrier = &barrier;
+		arg[i].count = 0;
+		arg[i].nbrNodes = 0;
+	}
 
-  give_nodes(g, arg, n_threads);
-  for (int i = 0; i < n_threads; i += 1)
-  {
-    pthread_create(&threads[i], NULL, phase1, &arg[i]);
-  }
-  pthread_barrier_wait(&barrier);
-  pthread_barrier_wait(&barrier);
+	give_nodes(g, arg, n_threads);
+	for (int i = 0; i < n_threads; i += 1)
+	{
+		pthread_create(&threads[i], NULL, phase1, &arg[i]);
+	}
+	pthread_barrier_wait(&barrier);
+	pthread_barrier_wait(&barrier);
 
-  while (1)
-  {
-    phase2(g, arg, n_threads);
-    if (g->excess == NULL)
-    {
-      break;
-    }
-    give_nodes(g, arg, n_threads);
-    pthread_barrier_wait(&barrier);
-    pthread_barrier_wait(&barrier);
-  }
+	while (1)
+	{
+		phase2(g, arg, n_threads);
+		if (g->excess == NULL)
+		{
+			break;
+		}
+		give_nodes(g, arg, n_threads);
+		pthread_barrier_wait(&barrier);
+		pthread_barrier_wait(&barrier);
+	}
 
-  g->shouldTerminate = 1;
-  pthread_barrier_wait(&barrier);
+	g->shouldTerminate = 1;
+	pthread_barrier_wait(&barrier);
 
-  for (int i = 0; i < n_threads; i += 1)
-  {
-    pthread_join(threads[i], NULL);
-  }
-  return g->t->e;
+	for (int i = 0; i < n_threads; i += 1)
+	{
+		pthread_join(threads[i], NULL);
+	}
+	return g->t->e;
 }
 
-static void free_graph(graph_t* g);
+static void free_graph(graph_t *g);
 
-int preflow(graph_t *g, int n_threads, int nbr_of_nodes)
+int preflow(int n, int m, int s, int t, xedge_t* e)
 {
-  node_t *s;
-  node_t *u;
-  node_t *v;
-  edge_t *e;
-  list_t *p;
-  command *c;
-  int b;
-  pthread_t threads[n_threads];
-
-  s = g->s;
-  s->h = g->n;
-  p = s->edge;
-  g->shouldTerminate = 0;
-
-  while (p != NULL)
-  {
-    e = p->edge;
-    p = p->next;
-
-    s->e += e->c;
-    push(g, s, other(s, e), e, e->c);
-  }
-
-  pthread_barrier_t barrier;
-  pthread_barrier_init(&barrier, NULL, n_threads + 1);
-
-  myargs arg[n_threads];
-  for (int i = 0; i < n_threads; i++)
-  {
-    arg[i].g = g;
-    arg[i].barrier = &barrier;
-    arg[i].count = 0;
-    arg[i].nbrNodes = 0;
-  }
-
-  give_nodes(g, arg, n_threads);
-  for (int i = 0; i < n_threads; i += 1)
-  {
-    pthread_create(&threads[i], NULL, phase1, &arg[i]);
-  }
-  pthread_barrier_wait(&barrier);
-  pthread_barrier_wait(&barrier);
-
-  while (1)
-  {
-    phase2(g, arg, n_threads);
-    if (g->excess == NULL)
-    {
-      break;
-    }
-    give_nodes(g, arg, n_threads);
-    pthread_barrier_wait(&barrier);
-    pthread_barrier_wait(&barrier);
-  }
-
-  g->shouldTerminate = 1;
-  pthread_barrier_wait(&barrier);
-
-  for (int i = 0; i < n_threads; i += 1)
-  {
-    pthread_join(threads[i], NULL);
-  }
-  return g->t->e;
+	graph_t* g = new_graph(n, m, s, t, e);
+	int f;
+	int n_threads = 80;
+	f = xpreflow(g, n_threads);
 }
 
-static void free_graph(graph_t* g)
+static void free_graph(graph_t *g)
 {
-	int		i;
-	list_t*		p;
-	list_t*		q;
+	int i;
+	list_t *p;
+	list_t *q;
 
-	for (i = 0; i < g->n; i += 1) {
+	for (i = 0; i < g->n; i += 1)
+	{
 		p = g->v[i].edge;
-		while (p != NULL) {
+		while (p != NULL)
+		{
 			q = p->next;
 			free(p);
 			p = q;
@@ -747,51 +703,52 @@ static void free_graph(graph_t* g)
 
 #ifdef MAIN
 
-static graph_t* new_graph(FILE* in, int n, int m)
+static graph_t *new_graph(FILE *in, int n, int m)
 {
-	graph_t*	g;
-	node_t*		u;
-	node_t*		v;
-	int		i;
-	int		a;
-	int		b;
-	int		c;
-	
+	graph_t *g;
+	node_t *u;
+	node_t *v;
+	int i;
+	int a;
+	int b;
+	int c;
+
 	g = xmalloc(sizeof(graph_t));
 
 	g->n = n;
 	g->m = m;
-	
+
 	g->v = xcalloc(n, sizeof(node_t));
 	g->e = xcalloc(m, sizeof(edge_t));
 
 	g->s = &g->v[0];
-	g->t = &g->v[n-1];
+	g->t = &g->v[n - 1];
 	g->excess = NULL;
 
-	for (i = 0; i < m; i += 1) {
+	for (i = 0; i < m; i += 1)
+	{
 		a = next_int();
 		b = next_int();
 		c = next_int();
 		u = &g->v[a];
 		v = &g->v[b];
-		connect(u, v, c, g->e+i);
+		connect(u, v, c, g->e + i);
 	}
 
 	return g;
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-	FILE*		in;	/* input file set to stdin	*/
-	graph_t*	g;	/* undirected graph. 		*/
-	int		f;	/* output from preflow.		*/
-	int		n;	/* number of nodes.		*/
-	int		m;	/* number of edges.		*/
+	FILE *in;	/* input file set to stdin	*/
+	graph_t *g; /* undirected graph. 		*/
+	int f;		/* output from preflow.		*/
+	int n;		/* number of nodes.		*/
+	int m;		/* number of edges.		*/
 
-	progname = argv[0];	/* name is a string in argv[0]. */
+	progname = argv[0]; /* name is a string in argv[0]. */
 
-	in = stdin;		/* same as System.in in Java.	*/
+	in = stdin; /* same as System.in in Java.	*/
 
 	n = next_int();
 	m = next_int();
@@ -815,35 +772,36 @@ int main(int argc, char* argv[])
 
 #else
 
-static graph_t* new_graph(int n, int m, int s, int t, xedge_t* e)
+static graph_t *new_graph(int n, int m, int s, int t, xedge_t *e)
 {
-	graph_t*	g;
-	node_t*		u;
-	node_t*		v;
-	int		i;
-	int		a;
-	int		b;
-	int		c;
-	
+	graph_t *g;
+	node_t *u;
+	node_t *v;
+	int i;
+	int a;
+	int b;
+	int c;
+
 	g = xmalloc(sizeof(graph_t));
 
 	g->n = n;
 	g->m = m;
-	
+
 	g->v = xcalloc(n, sizeof(node_t));
 	g->e = xcalloc(m, sizeof(edge_t));
 
 	g->s = &g->v[0];
-	g->t = &g->v[n-1];
+	g->t = &g->v[n - 1];
 	g->excess = NULL;
 
-	for (i = 0; i < m; i += 1) {
+	for (i = 0; i < m; i += 1)
+	{
 		a = e[i].u;
 		b = e[i].v;
 		c = e[i].c;
 		u = &g->v[a];
 		v = &g->v[b];
-		connect(u, v, c, g->e+i);
+		connect(u, v, c, g->e + i);
 	}
 
 	return g;
