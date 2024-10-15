@@ -26,7 +26,7 @@
 
 #define PRINT 0 /* enable/disable prints.	*/
 #define TIME 0	/* for timing on power.		*/
-#define SIZE 200ULL
+#define SIZE 100ULL
 
 
 /* the funny do-while next clearly performs one iteration of the loop.
@@ -670,11 +670,24 @@ static void free_graph(graph_t *g);
 
 int preflow(int n, int m, int s, int t, xedge_t* e)
 {
-	graph_t* g = new_graph(n, m, s, t, e);
+	graph_t* g;
 	int f;
 	int n_threads = 80;
+	double		begin;
+	double		end;
+	
+#if TIME
+	init_timebase();
+	begin = timebase_sec();
+#endif
+	g = new_graph(n, m, s, t, e);
 	f = xpreflow(g, n_threads);
 	free_graph(g);
+#if TIME
+	end = timebase_sec();
+	printf("t = %10.3lf s\n", end-begin);
+#endif
+	return f;
 }
 
 static void free_graph(graph_t *g)
@@ -703,7 +716,6 @@ static void free_graph(graph_t *g)
 static graph_t *new_graph(FILE *in, int n, int m)
 {
 	graph_t *g;
-	node_t *u;
 	node_t *v;
 	int i;
 	int a;
