@@ -717,7 +717,7 @@ static graph_t *new_graph(FILE *in, int n, int m)
 {
 	graph_t *g;
 	node_t *v;
-	int u;
+	node_t *u;
 	int i;
 	int a;
 	int b;
