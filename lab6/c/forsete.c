@@ -533,9 +533,6 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 
 			if (current->push)
 			{
-
-				{
-
 					if (current->u->acc_ex != 0)
 					{
 						current->u->e += current->u->acc_ex;
@@ -548,7 +545,6 @@ static void *phase2(graph_t *g, myargs *arg, int n_threads)
 						current->v->acc_ex = 0;
 						enter_excess(g, current->v);
 					}
-				}
 			}
 			else
 			{
@@ -678,6 +674,7 @@ int preflow(int n, int m, int s, int t, xedge_t* e)
 	int f;
 	int n_threads = 80;
 	f = xpreflow(g, n_threads);
+	free_graph(g);
 }
 
 static void free_graph(graph_t *g)
