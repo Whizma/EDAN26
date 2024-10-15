@@ -366,9 +366,10 @@ static node_t *leave_excess(graph_t *g)
 
 	v = g->excess;
 
-	if (v != NULL)
+	if (v != NULL) {
 		g->excess = v->next;
-	v->active = 0;
+		v->active = 0;
+	}
 	return v;
 }
 
