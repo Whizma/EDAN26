@@ -798,7 +798,7 @@ static graph_t *new_graph(int n, int m, int s, int t, xedge_t *e)
 
 	g->n = n;
 	g->m = m;
-	g->shouldTerminate = 0;
+	// g->shouldTerminate = 0;
 
 	g->v = xcalloc(n, sizeof(node_t));
 	g->e = xcalloc(m, sizeof(edge_t));
