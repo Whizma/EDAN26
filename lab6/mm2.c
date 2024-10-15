@@ -22,7 +22,8 @@ void matmul()
 		
 	}
 	
-	#pragma omp parallel for
+	#pragma omp parallel for(i, j, k)
+	#pragma omp for schedule(static, N/omp_get_num_procs())
 	for (i = 0; i < N; i += 1) {
 		for (k = 0; k < N; k += 1) {
 			float temp = b[i][k];
