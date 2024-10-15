@@ -771,7 +771,8 @@ int main(int argc, char *argv[])
 
 	fclose(in);
 
-	f = preflow(g);
+	int n_threads = 80;
+	f = preflow(g, n_threads);
 
 	printf("f = %d\n", f);
 
