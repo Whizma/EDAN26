@@ -772,7 +772,7 @@ int main(int argc, char *argv[])
 	fclose(in);
 
 	int n_threads = 80;
-	f = preflow(g, n_threads);
+	f = xpreflow(g, n_threads);
 
 	printf("f = %d\n", f);
 
@@ -797,6 +797,7 @@ static graph_t *new_graph(int n, int m, int s, int t, xedge_t *e)
 
 	g->n = n;
 	g->m = m;
+	g->shouldTerminate = 0;
 
 	g->v = xcalloc(n, sizeof(node_t));
 	g->e = xcalloc(m, sizeof(edge_t));
