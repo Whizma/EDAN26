@@ -469,7 +469,7 @@ static void *phase1(void *arg) {
     pthread_barrier_wait(args->barrier);
   }
 
-  printf("Nodes processed: %d\n", nodes_processed);
+  // printf("Nodes processed: %d\n", nodes_processed);
   return 0;
 }
 
